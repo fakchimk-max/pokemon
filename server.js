@@ -39,3 +39,6 @@ async function loadPokemons() {
 
 );
 }
+//เอาข้อมูลไปเก็บ//
+pokemons = results;
+console.log(pokemons);
