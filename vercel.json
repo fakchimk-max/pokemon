@@ -1,5 +1,13 @@
 {
-  "rewrites": [
-    { "source": "/pokemons", "destination": "/server.js" }
+  "version": 2,
+  "routes": [
+    {
+      "src": "/pokemons(.*)",
+      "dest": "server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "public/$1"
+    }
   ]
 }
