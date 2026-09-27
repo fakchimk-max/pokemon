@@ -340,6 +340,40 @@
         gap: 16px;
     }
 
+    /* ---------- Pagination ---------- */
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-top: 22px;
+    }
+
+    .pagination button {
+        min-width: 40px;
+        padding: 9px 12px;
+        background: linear-gradient(135deg, #4b5178, #2f3358);
+    }
+
+    .pagination button.active {
+        background: linear-gradient(135deg, var(--gold), #e6a800);
+        color: #1b1d2f;
+    }
+
+    .pagination button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .pagination .page-info {
+        color: var(--text-dim);
+        font-size: 13px;
+        margin: 0 4px;
+    }
+
     .pokemon-card {
         border-radius: var(--radius-md);
         overflow: hidden;
@@ -717,12 +751,13 @@
             </select>
 
             <select id="orderSelect" onchange="sortPokemons()">
-                <option value="desc">ค่าสูง → ต่ำ</option>
                 <option value="asc">ค่าต่ำ → สูง</option>
+                <option value="desc">ค่าสูง → ต่ำ</option>
             </select>
         </div>
 
         <div id="pokemonGrid" class="pokemon-grid"></div>
+        <div id="pagination" class="pagination"></div>
     </div>
 
 </div>
@@ -776,33 +811,60 @@ let allPokemons = [];
 let displayedPokemons = [];
 let selectedPokemon = null;
 let team = [];
+let currentPage = 1;
+let totalPages = 1;
+const PAGE_SIZE = 25;
+let searchTimer = null;
 
 // ========================================
 // โหลดข้อมูล Pokémon
 // ========================================
 
-async function loadDashboard() {
+async function loadDashboard(page = 1) {
+    const searchText = document.getElementById("searchInput").value.trim();
+    const selectedType = document.getElementById("typeSelect").value;
+
+    const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+        search: searchText,
+        type: selectedType
+    });
+
+    const grid = document.getElementById("pokemonGrid");
+    const pagination = document.getElementById("pagination");
+
+    grid.innerHTML = `<div class="empty">กำลังโหลด Pokémon...</div>`;
+    pagination.innerHTML = "";
+
     try {
-        const response = await fetch("/pokemons");
+        const response = await fetch(`/pokemons?${params.toString()}`);
 
         if (!response.ok) {
             throw new Error("โหลด Pokémon ไม่สำเร็จ");
         }
 
-        allPokemons = await response.json();
-        displayedPokemons = [...allPokemons];
+        const data = await response.json();
 
-        renderPokemons(displayedPokemons);
+        allPokemons = data.pokemons || [];
+        displayedPokemons = [...allPokemons];
+        currentPage = data.page || page;
+        totalPages = data.totalPages || 1;
+
+        sortPokemons();
+        renderPagination();
 
     } catch (error) {
         console.error(error);
 
-        document.getElementById("pokemonGrid").innerHTML = `
+        grid.innerHTML = `
             <div class="empty">
                 โหลดข้อมูลไม่สำเร็จ<br>
                 กรุณาตรวจสอบ server.js
             </div>
         `;
+
+        pagination.innerHTML = "";
     }
 }
 
@@ -1029,19 +1091,12 @@ function updateTotalStats() {
 
 function filterPokemons() {
 
-    const searchText = document.getElementById("searchInput").value.toLowerCase().trim();
-    const selectedType = document.getElementById("typeSelect").value;
+    clearTimeout(searchTimer);
 
-    displayedPokemons = allPokemons.filter(pokemon => {
-
-        const matchName = pokemon.name.toLowerCase().includes(searchText);
-        const types = pokemon.types || [];
-        const matchType = selectedType === "all" || types.includes(selectedType);
-
-        return matchName && matchType;
-    });
-
-    sortPokemons();
+    searchTimer = setTimeout(() => {
+        currentPage = 1;
+        loadDashboard(1);
+    }, 300);
 }
 
 // ========================================
@@ -1065,6 +1120,87 @@ function sortPokemons() {
     });
 
     renderPokemons(displayedPokemons);
+}
+
+// ========================================
+// เปลี่ยนหน้า Pokémon
+// ========================================
+
+function changePage(page) {
+
+    if (page < 1 || page > totalPages || page === currentPage) {
+        return;
+    }
+
+    currentPage = page;
+    loadDashboard(page);
+
+    const grid = document.getElementById("pokemonGrid");
+    if (grid) {
+        grid.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
+
+function renderPagination() {
+
+    const container = document.getElementById("pagination");
+
+    if (!container || totalPages <= 1) {
+        if (container) {
+            container.innerHTML = "";
+        }
+        return;
+    }
+
+    let html = `
+        <button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? "disabled" : ""}>←</button>
+    `;
+
+    const pages = [];
+
+    if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (currentPage > 4) {
+            pages.push("...");
+        }
+
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+
+        if (currentPage < totalPages - 3) {
+            pages.push("...");
+        }
+
+        pages.push(totalPages);
+    }
+
+    pages.forEach(page => {
+        if (page === "...") {
+            html += `<span class="page-info">...</span>`;
+        } else {
+            html += `
+                <button
+                    class="${page === currentPage ? "active" : ""}"
+                    onclick="changePage(${page})"
+                >${page}</button>
+            `;
+        }
+    });
+
+    html += `
+        <button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? "disabled" : ""}>→</button>
+    `;
+
+    container.innerHTML = html;
 }
 
 // ========================================
@@ -1212,7 +1348,7 @@ window.addEventListener("scroll", () => {
 // ========================================
 
 renderTeamSlots();
-loadDashboard();
+loadDashboard(1);
 
 </script>
 

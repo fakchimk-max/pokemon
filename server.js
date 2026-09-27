@@ -8,14 +8,24 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static("public"));
 
+// โหลดเฉพาะรายการชื่อและ URL ของ Pokémon ทั้งหมดก่อน
+// รายละเอียดจะโหลดเฉพาะ Pokémon ของหน้าที่กำลังเปิด
 const API_URL = "https://pokeapi.co/api/v2/pokemon?limit=1025";
-let pokemons = [];
 
-//โหลดเอา pokemon จาก pokeapi//
+let pokemonList = [];
+const detailCache = new Map();
+const typeCache = new Map();
 
-async function loadPokemons() {
+// จำกัดจำนวน request พร้อมกัน เพื่อป้องกัน Vercel ขึ้น EMFILE
+const DETAIL_BATCH_SIZE = 12;
 
-    console.log("กำลังโหลดข้อมูล Pokémon อยู่จ้า . . .");
+// ========================================
+// โหลดรายชื่อ Pokémon 1,025 ตัว
+// ========================================
+
+async function loadPokemonList() {
+
+    console.log("กำลังโหลดรายชื่อ Pokémon อยู่จ้า . . .");
 
     const response = await fetch(API_URL);
 
@@ -25,80 +35,202 @@ async function loadPokemons() {
 
     const data = await response.json();
 
-    // โหลดรายละเอียดทีละชุด
-    // ยังคงโหลดครบ 1025 ตัวเหมือนเดิม
+    pokemonList = data.results.map((pokemon, index) => ({
+        id: index + 1,
+        name: pokemon.name,
+        url: pokemon.url
+    }));
+
+    console.log(`โหลดรายชื่อ Pokémon สำเร็จ ${pokemonList.length} ตัว`);
+}
+
+const pokemonListPromise = loadPokemonList().catch((error) => {
+    console.error("โหลดรายชื่อ Pokémon ไม่สำเร็จ:", error);
+    throw error;
+});
+
+// ========================================
+// โหลดรายละเอียด Pokémon และเก็บ cache
+// ========================================
+
+async function getPokemonDetail(pokemon) {
+
+    if (detailCache.has(pokemon.id)) {
+        return detailCache.get(pokemon.id);
+    }
+
+    const response = await fetch(pokemon.url);
+
+    if (!response.ok) {
+        throw new Error(`โหลดข้อมูล ${pokemon.name} ไม่สำเร็จ: ${response.status}`);
+    }
+
+    const detail = await response.json();
+
+    const pokemonData = {
+        id: detail.id,
+        name: detail.name,
+        image: detail.sprites.front_default,
+        hp: detail.stats[0].base_stat,
+        attack: detail.stats[1].base_stat,
+        defense: detail.stats[2].base_stat,
+        specialAttack: detail.stats[3].base_stat,
+        specialDefense: detail.stats[4].base_stat,
+        speed: detail.stats[5].base_stat,
+        types: detail.types.map(({ type }) => type.name)
+    };
+
+    detailCache.set(pokemon.id, pokemonData);
+
+    return pokemonData;
+}
+
+// โหลดเป็นชุดเล็ก ๆ เช่น 12 ตัวต่อครั้ง
+async function getPokemonDetails(list) {
+
     const results = [];
-    const batchSize = 25;
 
-    for (let i = 0; i < data.results.length; i += batchSize) {
+    for (let i = 0; i < list.length; i += DETAIL_BATCH_SIZE) {
 
-        const batch = data.results.slice(i, i + batchSize);
+        const batch = list.slice(i, i + DETAIL_BATCH_SIZE);
 
         const batchResults = await Promise.all(
-
-            batch.map(async (pokemon) => {
-
-                const response = await fetch(pokemon.url);
-
-                if (!response.ok) {
-                    throw new Error(
-                        `โหลดข้อมูล ${pokemon.name} ไม่สำเร็จ: ${response.status}`
-                    );
-                }
-
-                const detail = await response.json();
-
-                //เอาค่าต่าง ๆ ของ pokemon//
-
-                const pokemonData = {
-                    id: detail.id,
-                    name: detail.name,
-                    image: detail.sprites.front_default,
-                    hp: detail.stats[0].base_stat,
-                    attack: detail.stats[1].base_stat,
-                    defense: detail.stats[2].base_stat,
-                    specialAttack: detail.stats[3].base_stat,
-                    specialDefense: detail.stats[4].base_stat,
-                    speed: detail.stats[5].base_stat,
-                    types: detail.types.map(({ type }) => type.name)
-                };
-
-                return pokemonData;
-            })
-
+            batch.map((pokemon) => getPokemonDetail(pokemon))
         );
 
         results.push(...batchResults);
+    }
 
-        console.log(
-            `โหลด Pokémon แล้ว ${results.length}/${data.results.length} ตัว`
+    return results;
+}
+
+// ========================================
+// โหลดรายชื่อ Pokémon ตามธาตุ
+// ========================================
+
+async function getPokemonNamesByType(type) {
+
+    if (typeCache.has(type)) {
+        return typeCache.get(type);
+    }
+
+    const response = await fetch(
+        `https://pokeapi.co/api/v2/type/${type}`
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            `โหลดข้อมูลธาตุ ${type} ไม่สำเร็จ: ${response.status}`
         );
     }
 
-    //เอาข้อมูลไปเก็บ//
-    pokemons = results;
+    const data = await response.json();
 
-    console.log(`โหลด Pokémon สำเร็จ ${pokemons.length} ตัว`);
+    const names = new Set(
+        data.pokemon.map((item) => item.pokemon.name)
+    );
+
+    typeCache.set(type, names);
+
+    return names;
 }
 
-let pokemonLoadError;
-
-const pokemonLoadPromise = loadPokemons().catch((error) => {
-    pokemonLoadError = error;
-    console.error("โหลดข้อมูล Pokémon ไม่สำเร็จ:", error);
-});
+// ========================================
+// API สำหรับแบ่งหน้า
+// ========================================
 
 app.get("/pokemons", async (req, res) => {
 
-    await pokemonLoadPromise;
+    try {
 
-    if (pokemonLoadError) {
-        return res.status(502).json({
+        await pokemonListPromise;
+
+        const page = Math.max(
+            1,
+            Number.parseInt(req.query.page, 10) || 1
+        );
+
+        const limit = Math.min(
+            25,
+            Math.max(
+                1,
+                Number.parseInt(req.query.limit, 10) || 25
+            )
+        );
+
+        const search = String(req.query.search || "")
+            .toLowerCase()
+            .trim();
+
+        const type = String(req.query.type || "all")
+            .toLowerCase()
+            .trim();
+
+        let filtered = pokemonList;
+
+        // ค้นหาจากชื่อ
+        if (search) {
+
+            filtered = filtered.filter((pokemon) =>
+                pokemon.name
+                    .toLowerCase()
+                    .includes(search)
+            );
+        }
+
+        // กรองตามธาตุ
+        if (type !== "all") {
+
+            const typeNames =
+                await getPokemonNamesByType(type);
+
+            filtered = filtered.filter((pokemon) =>
+                typeNames.has(pokemon.name)
+            );
+        }
+
+        const total = filtered.length;
+
+        const totalPages = Math.max(
+            1,
+            Math.ceil(total / limit)
+        );
+
+        const safePage = Math.min(
+            page,
+            totalPages
+        );
+
+        const start = (safePage - 1) * limit;
+
+        const pageList = filtered.slice(
+            start,
+            start + limit
+        );
+
+        // โหลดรายละเอียดเฉพาะ Pokémon ของหน้านี้
+        const pagePokemons =
+            await getPokemonDetails(pageList);
+
+        res.json({
+            pokemons: pagePokemons,
+            total,
+            page: safePage,
+            limit,
+            totalPages
+        });
+
+    } catch (error) {
+
+        console.error(
+            "โหลดข้อมูล Pokémon ไม่สำเร็จ:",
+            error
+        );
+
+        res.status(502).json({
             error: "โหลดข้อมูล Pokémon ไม่สำเร็จ"
         });
     }
-
-    res.json(pokemons);
 });
 
 app.listen(PORT, () => {
@@ -109,7 +241,15 @@ app.listen(PORT, () => {
 
 });
 
-function insertionSort(array, field = "id", order = "asc") {
+// ========================================
+// Insertion Sort
+// ========================================
+
+function insertionSort(
+    array,
+    field = "id",
+    order = "asc"
+) {
 
     // สร้าง Array ใหม่ เพื่อไม่แก้ไข Array ต้นฉบับ
     const arr = [...array];
@@ -139,19 +279,17 @@ function insertionSort(array, field = "id", order = "asc") {
             if (order === "asc") {
 
                 // Ascending (asc) น้อยไปมาก
-                // ถ้าค่าก่อนหน้ามากกว่า current ต้องเลื่อนไปทางขวา
                 shouldMove =
                     previousValue > currentValue;
 
             } else {
 
                 // Descending (desc) มากไปน้อย
-                // ถ้าค่าก่อนหน้าน้อยกว่า current ต้องเลื่อนไปทางขวา
                 shouldMove =
                     previousValue < currentValue;
             }
 
-            // ถ้าไม่ต้องเลื่อน แสดงว่าเจอตำแหน่งที่ถูกต้องแล้ว
+            // ถ้าไม่ต้องเลื่อน
             if (!shouldMove) {
                 break;
             }
@@ -170,6 +308,10 @@ function insertionSort(array, field = "id", order = "asc") {
     // ส่งข้อมูลที่เรียงแล้วกลับไป
     return arr;
 }
+
+// ========================================
+// Stack
+// ========================================
 
 class Stack {
 
