@@ -10,7 +10,7 @@ app.use(express.static("public"));
 
 // โหลดเฉพาะรายการชื่อและ URL ของ Pokémon ทั้งหมดก่อน
 // รายละเอียดจะโหลดเฉพาะ Pokémon ของหน้าที่กำลังเปิด
-const API_URL = "https://pokeapi.co/api/v2/pokemon?limit=1025";
+const API_URL = "https://pokeapi.co/api/v2/pokemon?limit=100";
 
 let pokemonList = [];
 const detailCache = new Map();
