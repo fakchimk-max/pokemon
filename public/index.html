@@ -243,6 +243,67 @@
 
     .selected-info .add-button { margin-top: 4px; margin-right: 10px; }
 
+    /* ---------- Selected Pokémon Popup ---------- */
+
+    .selected-modal {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(5, 7, 20, 0.78);
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+        z-index: 100;
+    }
+
+    .selected-modal.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    .selected-modal-content {
+        position: relative;
+        width: min(900px, 100%);
+        max-height: 90vh;
+        overflow-y: auto;
+        border-radius: var(--radius-lg);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+        transform: translateY(12px) scale(0.98);
+        transition: transform 0.2s ease;
+    }
+
+    .selected-modal.show .selected-modal-content {
+        transform: translateY(0) scale(1);
+    }
+
+    .selected-modal .selected-box {
+        margin: 0;
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 5;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 24px;
+        line-height: 1;
+        background: rgba(0, 0, 0, 0.45);
+    }
+
+    body.modal-open {
+        overflow: hidden;
+    }
+
     /* ---------- Controls ---------- */
 
     .controls {
@@ -566,13 +627,16 @@
 <div class="container">
 
     <!-- ========================= -->
-    <!-- Selected Pokémon -->
+    <!-- Selected Pokémon Popup -->
     <!-- ========================= -->
 
-    <div class="panel">
-        <h2>Pokémon ที่เลือก</h2>
-        <div id="selectedPokemon" class="selected-box">
-            <div class="empty">กรุณากดเลือก Pokémon ด้านล่าง</div>
+    <div id="selectedModal" class="selected-modal" onclick="closeSelectedModal(event)">
+        <div class="selected-modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeSelectedModal()" aria-label="ปิด">×</button>
+
+            <div id="selectedPokemon" class="selected-box">
+                <div class="empty">กรุณากดเลือก Pokémon ด้านล่าง</div>
+            </div>
         </div>
     </div>
 
@@ -823,6 +887,10 @@ function selectPokemon(pokemon) {
             <button class="add-button" onclick="addToTeam()">+ เพิ่มเข้าทีม</button>
         </div>
     `;
+
+    const modal = document.getElementById("selectedModal");
+    modal.classList.add("show");
+    document.body.classList.add("modal-open");
 }
 
 // ========================================
@@ -852,7 +920,35 @@ function addToTeam() {
 
     renderTeam();
     updateTotalStats();
+    closeSelectedModal();
 }
+
+// ========================================
+// ปิดหน้าต่าง Pokémon ที่เลือก
+// ========================================
+
+function closeSelectedModal(event) {
+
+    // ถ้าคลิกด้านในหน้าต่าง ไม่ต้องปิด
+    if (event && event.target !== event.currentTarget) {
+        return;
+    }
+
+    const modal = document.getElementById("selectedModal");
+
+    if (modal) {
+        modal.classList.remove("show");
+    }
+
+    document.body.classList.remove("modal-open");
+}
+
+// ปิด Popup ด้วยปุ่ม Escape
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        closeSelectedModal();
+    }
+});
 
 // ========================================
 // แสดงทีม

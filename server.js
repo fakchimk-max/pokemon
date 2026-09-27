@@ -29,7 +29,9 @@ async function loadPokemons() {
             throw new Error(`โหลดข้อมูล ${pokemon.name} ไม่สำเร็จ: ${response.status}`);
         }
         const detail = await response.json();
+
     //เอาค่าต่าง ๆ ของ pokemon//
+
         const pokemonData = {
             id: detail.id,
             name: detail.name,
@@ -46,6 +48,7 @@ async function loadPokemons() {
     })
 
 );
+
 //เอาข้อมูลไปเก็บ//
     pokemons = results;
     console.log(`โหลด Pokémon สำเร็จ ${pokemons.length} ตัว`);
@@ -159,39 +162,3 @@ class Stack {
         return this.items;
     }
 }
-
-
-// สร้าง Stack สำหรับเก็บ History
-const history = new Stack();
-
-
-// เพิ่มประวัติ
-history.push({
-    action: "ADD",
-    pokemon: {
-        id: 25,
-        name: "pikachu"
-    }
-});
-
-history.push({
-    action: "ADD",
-    pokemon: {
-        id: 4,
-        name: "charmander"
-    }
-});
-
-
-// ดูข้อมูลทั้งหมด
-console.log(history.getAll());
-
-
-// ดูข้อมูลล่าสุด
-console.log(history.peek());
-
-
-// Undo
-const lastAction = history.pop();
-
-console.log("Undo:", lastAction);
