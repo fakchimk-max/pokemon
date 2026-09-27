@@ -16,41 +16,62 @@ let pokemons = [];
 async function loadPokemons() {
 
     console.log("กำลังโหลดข้อมูล Pokémon อยู่จ้า . . .");
+
     const response = await fetch(API_URL);
+
     if (!response.ok) {
         throw new Error(`โหลดรายการ Pokémon ไม่สำเร็จ: ${response.status}`);
     }
+
     const data = await response.json();
-    const results = await Promise.all(
 
-    data.results.map(async (pokemon) => {
-        const response = await fetch(pokemon.url);
-        if (!response.ok) {
-            throw new Error(`โหลดข้อมูล ${pokemon.name} ไม่สำเร็จ: ${response.status}`);
-        }
-        const detail = await response.json();
+    const results = [];
 
-    //เอาค่าต่าง ๆ ของ pokemon//
+    // โหลดทีละ 20 ตัว ป้องกัน Vercel เปิด connection เยอะเกินไป
+    for (let i = 0; i < data.results.length; i += 20) {
 
-        const pokemonData = {
-            id: detail.id,
-            name: detail.name,
-            image: detail.sprites.front_default,
-            hp: detail.stats[0].base_stat,
-            attack: detail.stats[1].base_stat,
-            defense: detail.stats[2].base_stat,
-            specialAttack: detail.stats[3].base_stat,
-            specialDefense: detail.stats[4].base_stat,
-            speed: detail.stats[5].base_stat,
-            types: detail.types.map(({ type }) => type.name)
-        };
-        return pokemonData;
-    })
+        const batch = data.results.slice(i, i + 20);
 
-);
+        const batchResults = await Promise.all(
 
-//เอาข้อมูลไปเก็บ//
+            batch.map(async (pokemon) => {
+
+                const response = await fetch(pokemon.url);
+
+                if (!response.ok) {
+                    throw new Error(
+                        `โหลดข้อมูล ${pokemon.name} ไม่สำเร็จ: ${response.status}`
+                    );
+                }
+
+                const detail = await response.json();
+
+                const pokemonData = {
+                    id: detail.id,
+                    name: detail.name,
+                    image: detail.sprites.front_default,
+
+                    hp: detail.stats[0].base_stat,
+                    attack: detail.stats[1].base_stat,
+                    defense: detail.stats[2].base_stat,
+                    specialAttack: detail.stats[3].base_stat,
+                    specialDefense: detail.stats[4].base_stat,
+                    speed: detail.stats[5].base_stat,
+
+                    types: detail.types.map(({ type }) => type.name)
+                };
+
+                return pokemonData;
+            })
+        );
+
+        results.push(...batchResults);
+
+        console.log(`โหลดแล้ว ${results.length}/${data.results.length} ตัว`);
+    }
+
     pokemons = results;
+
     console.log(`โหลด Pokémon สำเร็จ ${pokemons.length} ตัว`);
 }
 
