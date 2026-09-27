@@ -43,7 +43,7 @@ app.get("/pokemons", async (req, res) => {
 
         // ถ้ามีการค้นหาจากค้นชื่อหรือกรองตามธาตุ
         if (type !== "all" || search) {
-            const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025`, {
+            const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1024`, {
                 headers: { "User-Agent": "Mozilla/5.0" }
             });
             const dataAll = await resAll.json();
