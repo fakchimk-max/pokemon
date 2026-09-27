@@ -1,40 +1,32 @@
-//pokemon api//
-
 const express = require("express");
+const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// เก็บ Cache สำหรับรายละเอียด Pokémon และ ธาตุ
-const detailCache = new Map();
-const typeCache = new Map();
+// ส่งหน้า index.html เมื่อเปิดเข้ามาที่หน้าแรก
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "index.html"));
+});
 
-// ========================================
-// API สำหรับแบ่งหน้า (ดึงจาก PokeAPI ตรงๆ แบบจำกัดจำนวน)
-// ========================================
-
+// API /pokemons
 app.get("/pokemons", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
         const limit = Math.min(25, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
-        const search = String(req.query.search || "").toLowerCase().trim();
-        const type = String(req.query.type || "all").toLowerCase().trim();
-
         const offset = (page - 1) * limit;
 
-        // ดึงเฉพาะจำนวนที่ต้องการในหน้านั้นๆ (เช่น ทีละ 25 ตัว)
         const response = await fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`, {
             headers: { "User-Agent": "Mozilla/5.0" }
         });
 
         if (!response.ok) {
-            throw new Error(`ดึงข้อมูล PokeAPI ไม่สำเร็จ: ${response.status}`);
+            throw new Error(`API Error: ${response.status}`);
         }
 
         const data = await response.json();
 
-        // ดึงรายละเอียดเฉพาะ 25 ตัวของหน้านี้
         const pagePokemons = await Promise.all(
             data.results.map(async (pokemon) => {
                 const resDetail = await fetch(pokemon.url, {
@@ -59,18 +51,20 @@ app.get("/pokemons", async (req, res) => {
 
         res.json({
             pokemons: pagePokemons.filter(p => p !== null),
-            total: data.count, // PokeAPI มีคืนค่า count รวมทั้งหมดให้อยู่แล้ว (1000+)
+            total: data.count,
             page,
             limit,
             totalPages: Math.ceil(data.count / limit)
         });
 
     } catch (error) {
-        console.error("โหลดข้อมูล Pokémon ไม่สำเร็จ:", error);
-        res.status(502).json({
-            error: "โหลดข้อมูล Pokémon ไม่สำเร็จ"
-        });
+        console.error("Fetch Error:", error);
+        res.status(502).json({ error: "โหลดข้อมูลไม่สำเร็จ" });
     }
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
 
 // ========================================
