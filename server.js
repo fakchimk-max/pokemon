@@ -38,41 +38,39 @@ app.get("/pokemons", async (req, res) => {
         const search = String(req.query.search || "").toLowerCase().trim();
         const type = String(req.query.type || "all").toLowerCase().trim();
 
-        let targetList = [];
-        let totalCount = 0;
+        // 1. ดึงข้อมูล 1,025 ตัวหลักเสมอ
+        const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+        if (!resAll.ok) throw new Error(`API Error: ${resAll.status}`);
+        const dataAll = await resAll.json();
 
-        // ถ้ามีการค้นหาจากค้นชื่อหรือกรองตามธาตุ
-        if (type !== "all" || search) {
-            // ดึงเฉพาะ 1,025 ตัวหลัก ไม่เอาตัวร่างแยกเกิน ID 1025
-            const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025`, {
-                headers: { "User-Agent": "Mozilla/5.0" }
-            });
+        // 2. กรองเอาเฉพาะ ID 1 - 1025 เท่านั้น (ตัดพวกร่างฟอร์ม ID 10001+ ออกเด็ดขาด)
+        let mainList = dataAll.results.filter(p => {
+            const idMatch = p.url.match(/\/pokemon\/(\d+)\//);
+            const id = idMatch ? parseInt(idMatch[1], 10) : 0;
+            return id >= 1 && id <= 1025;
+        });
 
-            if (search) {
-                filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
-            }
-
-            if (type !== "all") {
-                const typeNames = await getPokemonNamesByType(type);
-                filtered = filtered.filter(p => typeNames.has(p.name));
-            }
-
-            totalCount = filtered.length;
-            const start = (page - 1) * limit;
-            targetList = filtered.slice(start, start + limit);
-        } else {
-            // โหมดปกติ แบ่งหน้า
-            const offset = (page - 1) * limit;
-            const response = await fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`, {
-                headers: { "User-Agent": "Mozilla/5.0" }
-            });
-            if (!response.ok) throw new Error(`API Error: ${response.status}`);
-            const data = await response.json();
-            targetList = data.results;
-            totalCount = data.count;
+        // 3. กรองตามการค้นหาชื่อ
+        if (search) {
+            mainList = mainList.filter(p => p.name.toLowerCase().includes(search));
         }
 
-        // โหลดรายละเอียดรายตัวเฉพาะในหน้านั้นๆ
+        // 4. กรองตามธาตุ
+        if (type !== "all") {
+            const typeNames = await getPokemonNamesByType(type);
+            mainList = mainList.filter(p => typeNames.has(p.name));
+        }
+
+        // ยอดรวมหลังกรอง (สูงสุดไม่เกิน 1025)
+        const totalCount = mainList.length;
+
+        // 5. ตัดแบ่งหน้า (Pagination)
+        const start = (page - 1) * limit;
+        const targetList = mainList.slice(start, start + limit);
+
+        // 6. ดึงรายละเอียดเฉพาะ 25 ตัวในหน้านั้น
         const pagePokemons = await Promise.all(
             targetList.map(async (pokemon) => {
                 const resDetail = await fetch(pokemon.url, {
@@ -80,6 +78,7 @@ app.get("/pokemons", async (req, res) => {
                 });
                 if (!resDetail.ok) return null;
                 const detail = await resDetail.json();
+
                 return {
                     id: detail.id,
                     name: detail.name,
@@ -97,7 +96,7 @@ app.get("/pokemons", async (req, res) => {
 
         res.json({
             pokemons: pagePokemons.filter(p => p !== null),
-            total: totalCount,
+            total: totalCount, // จะส่งค่าสูงสุดได้แค่ 1025 ตัวเป๊ะ
             page,
             limit,
             totalPages: Math.ceil(totalCount / limit) || 1
