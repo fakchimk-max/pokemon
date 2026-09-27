@@ -27,7 +27,9 @@ async function loadPokemonList() {
 
     console.log("กำลังโหลดรายชื่อ Pokémon อยู่จ้า . . .");
 
-    const response = await fetch(API_URL);
+    const response = await fetch(API_URL, {
+        headers: { "User-Agent": "Mozilla/5.0" }
+    });
 
     if (!response.ok) {
         throw new Error(`โหลดรายการ Pokémon ไม่สำเร็จ: ${response.status}`);
@@ -59,7 +61,9 @@ async function getPokemonDetail(pokemon) {
         return detailCache.get(pokemon.id);
     }
 
-    const response = await fetch(pokemon.url);
+    const response = await fetch(pokemon.url, {
+        headers: { "User-Agent": "Mozilla/5.0" }
+    });
 
     if (!response.ok) {
         throw new Error(`โหลดข้อมูล ${pokemon.name} ไม่สำเร็จ: ${response.status}`);
@@ -115,7 +119,10 @@ async function getPokemonNamesByType(type) {
     }
 
     const response = await fetch(
-        `https://pokeapi.co/api/v2/type/${type}`
+        `https://pokeapi.co/api/v2/type/${type}`,
+        {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        }
     );
 
     if (!response.ok) {
