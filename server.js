@@ -5,6 +5,26 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// เก็บ Cache สำหรับข้อมูลธาตุ
+const typeCache = new Map();
+
+// ฟังก์ชันดึงรายชื่อ Pokémon ตามธาตุ
+async function getPokemonNamesByType(type) {
+    if (typeCache.has(type)) {
+        return typeCache.get(type);
+    }
+    const response = await fetch(`https://pokeapi.co/api/v2/type/${type}`, {
+        headers: { "User-Agent": "Mozilla/5.0" }
+    });
+    if (!response.ok) {
+        throw new Error(`โหลดข้อมูลธาตุ ${type} ไม่สำเร็จ`);
+    }
+    const data = await response.json();
+    const names = new Set(data.pokemon.map((item) => item.pokemon.name));
+    typeCache.set(type, names);
+    return names;
+}
+
 // ส่งหน้า index.html เมื่อเปิดเข้ามาที่หน้าแรก
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "index.html"));
@@ -15,20 +35,47 @@ app.get("/pokemons", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
         const limit = Math.min(25, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
-        const offset = (page - 1) * limit;
+        const search = String(req.query.search || "").toLowerCase().trim();
+        const type = String(req.query.type || "all").toLowerCase().trim();
 
-        const response = await fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`, {
-            headers: { "User-Agent": "Mozilla/5.0" }
-        });
+        let targetList = [];
+        let totalCount = 0;
 
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
+        // ถ้ามีการค้นหาจากค้นชื่อหรือกรองตามธาตุ
+        if (type !== "all" || search) {
+            const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025`, {
+                headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            const dataAll = await resAll.json();
+            let filtered = dataAll.results;
+
+            if (search) {
+                filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
+            }
+
+            if (type !== "all") {
+                const typeNames = await getPokemonNamesByType(type);
+                filtered = filtered.filter(p => typeNames.has(p.name));
+            }
+
+            totalCount = filtered.length;
+            const start = (page - 1) * limit;
+            targetList = filtered.slice(start, start + limit);
+        } else {
+            // โหมดปกติ แบ่งหน้า
+            const offset = (page - 1) * limit;
+            const response = await fetch(`https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`, {
+                headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            const data = await response.json();
+            targetList = data.results;
+            totalCount = data.count;
         }
 
-        const data = await response.json();
-
+        // โหลดรายละเอียดรายตัวเฉพาะในหน้านั้นๆ
         const pagePokemons = await Promise.all(
-            data.results.map(async (pokemon) => {
+            targetList.map(async (pokemon) => {
                 const resDetail = await fetch(pokemon.url, {
                     headers: { "User-Agent": "Mozilla/5.0" }
                 });
@@ -51,20 +98,16 @@ app.get("/pokemons", async (req, res) => {
 
         res.json({
             pokemons: pagePokemons.filter(p => p !== null),
-            total: data.count,
+            total: totalCount,
             page,
             limit,
-            totalPages: Math.ceil(data.count / limit)
+            totalPages: Math.ceil(totalCount / limit) || 1
         });
 
     } catch (error) {
         console.error("Fetch Error:", error);
         res.status(502).json({ error: "โหลดข้อมูลไม่สำเร็จ" });
     }
-});
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
 });
 
 // ========================================
