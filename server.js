@@ -1,16 +1,16 @@
 //pokemon api//
 
 const express = require("express");
+const path = require("path");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
 // โหลดเฉพาะรายการชื่อและ URL ของ Pokémon ทั้งหมดก่อน
-// รายละเอียดจะโหลดเฉพาะ Pokémon ของหน้าที่กำลังเปิด
-const API_URL = "https://pokeapi.co/api/v2/pokemon?limit=100";
+const API_URL = "https://pokeapi.co/api/v2/pokemon?limit=1025";
 
 let pokemonList = [];
 const detailCache = new Map();
@@ -238,6 +238,11 @@ app.get("/pokemons", async (req, res) => {
             error: "โหลดข้อมูล Pokémon ไม่สำเร็จ"
         });
     }
+});
+
+// ส่งหน้า index.html เมื่อเปิดเข้ามาที่หน้าแรก
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(PORT, () => {
