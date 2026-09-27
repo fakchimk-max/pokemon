@@ -492,32 +492,6 @@
         transform: none;
     }
 
-    /* ---------- Queue + Stack ---------- */
-
-    .two-column {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 22px;
-    }
-
-    .list-box {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--panel-border);
-        padding: 14px;
-        border-radius: var(--radius-md);
-        min-height: 100px;
-    }
-
-    .list-item {
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--text);
-        padding: 10px 12px;
-        margin-bottom: 8px;
-        border-radius: var(--radius-sm);
-        border: 1px solid var(--panel-border);
-        font-size: 14px;
-    }
-
     .empty {
         color: var(--text-dim);
         text-align: center;
@@ -571,8 +545,6 @@
         .total-stats { grid-template-columns: repeat(3, 1fr); }
 
         .team-slots { grid-template-columns: repeat(2, 1fr); }
-
-        .two-column { grid-template-columns: 1fr; }
 
         .scroll-top-btn {
             right: 16px;
@@ -689,30 +661,6 @@
         <div id="pokemonGrid" class="pokemon-grid"></div>
     </div>
 
-    <!-- ========================= -->
-    <!-- Queue + Stack -->
-    <!-- ========================= -->
-
-    <div class="two-column">
-        <div class="panel">
-            <h2>Queue</h2>
-            <div id="queueList" class="list-box">
-                <div class="empty">Queue ว่าง</div>
-            </div>
-            <br>
-            <button onclick="processQueue()">Process Queue</button>
-        </div>
-
-        <div class="panel">
-            <h2>Stack / History</h2>
-            <div id="historyList" class="list-box">
-                <div class="empty">History ว่าง</div>
-            </div>
-            <br>
-            <button onclick="undo()">Undo</button>
-        </div>
-    </div>
-
 </div>
 
 <button id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToTop()" aria-label="เลื่อนขึ้นด้านบน">↑</button>
@@ -781,8 +729,6 @@ async function loadDashboard() {
         displayedPokemons = [...allPokemons];
 
         renderPokemons(displayedPokemons);
-        loadWatchlist();
-        loadHistory();
 
     } catch (error) {
         console.error(error);
@@ -875,7 +821,6 @@ function selectPokemon(pokemon) {
             </div>
 
             <button class="add-button" onclick="addToTeam()">+ เพิ่มเข้าทีม</button>
-            <button onclick="addSelectedToQueue()">+ เพิ่มเข้า Queue</button>
         </div>
     `;
 }
@@ -1146,141 +1091,6 @@ function clearTeam() {
 
     renderTeam();
     updateTotalStats();
-}
-
-// ========================================
-// เพิ่ม Pokémon ที่เลือกเข้า Queue
-// ========================================
-
-async function addSelectedToQueue() {
-
-    if (!selectedPokemon) {
-        alert("กรุณาเลือก Pokémon ก่อน");
-        return;
-    }
-
-    try {
-        await fetch("/watchlist", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: selectedPokemon.id })
-        });
-
-        loadWatchlist();
-        loadHistory();
-
-    } catch (error) {
-        console.error(error);
-    }
-}
-
-// ========================================
-// โหลด Queue
-// ========================================
-
-async function loadWatchlist() {
-
-    try {
-        const response = await fetch("/watchlist");
-
-        if (!response.ok) {
-            return;
-        }
-
-        const data = await response.json();
-        const list = document.getElementById("queueList");
-
-        list.innerHTML = "";
-
-        if (!data.length) {
-            list.innerHTML = `<div class="empty">Queue ว่าง</div>`;
-            return;
-        }
-
-        data.forEach((pokemon, index) => {
-            const item = document.createElement("div");
-            item.className = "list-item";
-            item.textContent = `${index + 1}. ${pokemon.name}`;
-            list.appendChild(item);
-        });
-
-    } catch (error) {
-        console.error(error);
-    }
-}
-
-// ========================================
-// Process Queue
-// ========================================
-
-async function processQueue() {
-
-    try {
-        await fetch("/watchlist/process", { method: "DELETE" });
-
-        loadWatchlist();
-        loadHistory();
-
-    } catch (error) {
-        console.error(error);
-    }
-}
-
-// ========================================
-// History
-// ========================================
-
-async function loadHistory() {
-
-    try {
-        const response = await fetch("/history");
-
-        if (!response.ok) {
-            return;
-        }
-
-        const data = await response.json();
-        const list = document.getElementById("historyList");
-
-        list.innerHTML = "";
-
-        if (!data.length) {
-            list.innerHTML = `<div class="empty">History ว่าง</div>`;
-            return;
-        }
-
-        [...data].reverse().forEach(item => {
-            const element = document.createElement("div");
-            element.className = "list-item";
-            element.textContent = `${item.action} - ${item.name}`;
-            list.appendChild(element);
-        });
-
-    } catch (error) {
-        console.error(error);
-    }
-}
-
-// ========================================
-// Undo
-// ========================================
-
-async function undo() {
-
-    try {
-        const response = await fetch("/undo", { method: "POST" });
-
-        if (!response.ok) {
-            alert("ไม่มีรายการให้ Undo");
-            return;
-        }
-
-        loadWatchlist();
-        loadHistory();
-
-    } catch (error) {
-        console.error(error);
-    }
 }
 
 // ========================================
