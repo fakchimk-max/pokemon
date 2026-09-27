@@ -353,3 +353,9 @@ class Stack {
         return this.items;
     }
 }
+
+app.use(express.static("public"));
+
+app.listen(PORT, () => {
+    console.log(`เซิร์ฟเวอร์พร้อมใช้งานที่ http://localhost:${PORT}`);
+});
