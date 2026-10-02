@@ -823,12 +823,16 @@ let searchTimer = null;
 async function loadDashboard(page = 1) {
     const searchText = document.getElementById("searchInput").value.trim();
     const selectedType = document.getElementById("typeSelect").value;
+    const stat = document.getElementById("statSelect").value;
+    const order = document.getElementById("orderSelect").value;
 
     const params = new URLSearchParams({
         page: String(page),
         limit: String(PAGE_SIZE),
         search: searchText,
-        type: selectedType
+        type: selectedType,
+        stat: stat,
+        order: order
     });
 
     const grid = document.getElementById("pokemonGrid");
@@ -851,7 +855,7 @@ async function loadDashboard(page = 1) {
         currentPage = data.page || page;
         totalPages = data.totalPages || 1;
 
-        sortPokemons();
+        renderPokemons(displayedPokemons);
         renderPagination();
 
     } catch (error) {
@@ -959,7 +963,7 @@ function selectPokemon(pokemon) {
 // เพิ่มเข้าทีม
 // ========================================
 
-function addToTeam() {
+async function addToTeam() {
 
     if (!selectedPokemon) {
         alert("กรุณาเลือก Pokémon ก่อน");
@@ -978,11 +982,28 @@ function addToTeam() {
         return;
     }
 
-    team.push(selectedPokemon);
+    try {
+        const response = await fetch("/team/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(selectedPokemon)
+        });
 
-    renderTeam();
-    updateTotalStats();
-    closeSelectedModal();
+        if (!response.ok) {
+            throw new Error("เพิ่ม Pokémon เข้า Stack ไม่สำเร็จ");
+        }
+
+        const data = await response.json();
+        team = data.team || [];
+
+        renderTeam();
+        updateTotalStats();
+        closeSelectedModal();
+
+    } catch (error) {
+        console.error(error);
+        alert("เพิ่ม Pokémon เข้าทีมไม่สำเร็จ");
+    }
 }
 
 // ========================================
@@ -1054,10 +1075,29 @@ function renderTeam() {
 // ลบออกจากทีม
 // ========================================
 
-function removeFromTeam(id) {
-    team = team.filter(pokemon => pokemon.id !== id);
-    renderTeam();
-    updateTotalStats();
+async function removeFromTeam(id) {
+
+    try {
+        const response = await fetch("/team/remove", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id })
+        });
+
+        if (!response.ok) {
+            throw new Error("ลบ Pokémon ออกจาก Stack ไม่สำเร็จ");
+        }
+
+        const data = await response.json();
+        team = data.team || [];
+
+        renderTeam();
+        updateTotalStats();
+
+    } catch (error) {
+        console.error(error);
+        alert("ลบ Pokémon ออกจากทีมไม่สำเร็จ");
+    }
 }
 
 // ========================================
@@ -1104,22 +1144,7 @@ function filterPokemons() {
 // ========================================
 
 function sortPokemons() {
-
-    const stat = document.getElementById("statSelect").value;
-    const order = document.getElementById("orderSelect").value;
-
-    displayedPokemons.sort((a, b) => {
-        const valueA = Number(a[stat]) || 0;
-        const valueB = Number(b[stat]) || 0;
-
-        if (order === "desc") {
-            return valueB - valueA;
-        }
-
-        return valueA - valueB;
-    });
-
-    renderPokemons(displayedPokemons);
+    loadDashboard(currentPage);
 }
 
 // ========================================
@@ -1296,6 +1321,13 @@ function loadTeamSlot(index) {
 
     team = [...slot];
 
+    // ให้ Stack ใน server ตรงกับทีมที่โหลด
+    fetch("/team/set", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ team })
+    }).catch(error => console.error(error));
+
     renderTeam();
     updateTotalStats();
 
@@ -1320,6 +1352,10 @@ function clearTeam() {
     }
 
     team = [];
+
+    fetch("/team/clear", {
+        method: "POST"
+    }).catch(error => console.error(error));
 
     renderTeam();
     updateTotalStats();

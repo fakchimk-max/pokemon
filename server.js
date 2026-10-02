@@ -37,6 +37,8 @@ app.get("/pokemons", async (req, res) => {
         const limit = Math.min(25, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
         const search = String(req.query.search || "").toLowerCase().trim();
         const type = String(req.query.type || "all").toLowerCase().trim();
+        const stat = String(req.query.stat || "id");
+        const order = String(req.query.order || "asc");
 
         // 1. ดึงข้อมูล 1,025 ตัวหลักเสมอ
         const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025`, {
@@ -45,7 +47,7 @@ app.get("/pokemons", async (req, res) => {
         if (!resAll.ok) throw new Error(`API Error: ${resAll.status}`);
         const dataAll = await resAll.json();
 
-        // 2. กรองเอาเฉพาะ ID 1 - 1025 เท่านั้น (ตัดพวกร่างฟอร์ม ID 10001+ ออกเด็ดขาด)
+        // 2. กรองเอาเฉพาะ ID 1 - 1025 
         let mainList = dataAll.results.filter(p => {
             const idMatch = p.url.match(/\/pokemon\/(\d+)\//);
             const id = idMatch ? parseInt(idMatch[1], 10) : 0;
@@ -94,8 +96,15 @@ app.get("/pokemons", async (req, res) => {
             })
         );
 
+        // ใช้ Insertion Sort เรียงข้อมูลก่อนส่งกลับไปที่หน้าเว็บ
+        const sortedPokemons = insertionSort(
+            pagePokemons.filter(p => p !== null),
+            stat,
+            order
+        );
+
         res.json({
-            pokemons: pagePokemons.filter(p => p !== null),
+            pokemons: sortedPokemons,
             total: totalCount, // จะส่งค่าสูงสุดได้แค่ 1025 ตัวเป๊ะ
             page,
             limit,
@@ -112,48 +121,34 @@ app.get("/pokemons", async (req, res) => {
 // Insertion Sort
 // ========================================
 
-function insertionSort(
-    array,
-    field = "id",
-    order = "asc"
-) {
-
+function insertionSort(array, field = "id", order = "asc") {
     // สร้าง Array ใหม่ เพื่อไม่แก้ไข Array ต้นฉบับ
     const arr = [...array];
 
     // เริ่มที่ index 1 เพราะข้อมูลตัวแรกถือว่าเรียงแล้ว
     for (let i = 1; i < arr.length; i++) {
-
         // เก็บข้อมูลตัวที่กำลังจะนำไปแทรก
         const current = arr[i];
 
         // ดึงค่าที่ใช้สำหรับเปรียบเทียบ
-        const currentValue =
-            Number(current[field]) || 0;
+        const currentValue = Number(current[field]) || 0;
 
         // เริ่มเปรียบเทียบจากข้อมูลด้านซ้าย
         let j = i - 1;
 
         // ตรวจสอบข้อมูลด้านซ้าย
         while (j >= 0) {
-
             // ดึงค่าของข้อมูลก่อนหน้า
-            const previousValue =
-                Number(arr[j][field]) || 0;
+            const previousValue = Number(arr[j][field]) || 0;
 
             let shouldMove;
 
             if (order === "asc") {
-
                 // Ascending (asc) น้อยไปมาก
-                shouldMove =
-                    previousValue > currentValue;
-
+                shouldMove = previousValue > currentValue;
             } else {
-
                 // Descending (desc) มากไปน้อย
-                shouldMove =
-                    previousValue < currentValue;
+                shouldMove = previousValue < currentValue;
             }
 
             // ถ้าไม่ต้องเลื่อน
@@ -181,7 +176,6 @@ function insertionSort(
 // ========================================
 
 class Stack {
-
     constructor() {
         this.items = [];
     }
@@ -195,9 +189,7 @@ class Stack {
     }
 
     peek() {
-        return this.items[
-            this.items.length - 1
-        ];
+        return this.items[this.items.length - 1];
     }
 
     isEmpty() {
@@ -208,6 +200,81 @@ class Stack {
         return this.items;
     }
 }
+
+// Stack สำหรับเก็บ Pokémon ในทีม
+const teamStack = new Stack();
+
+// เพิ่ม Pokémon เข้า Stack
+app.post("/team/push", (req, res) => {
+    if (teamStack.getAll().length >= 6) {
+        return res.status(400).json({ error: "ทีมเต็มแล้ว" });
+    }
+
+    teamStack.push(req.body);
+
+    res.json({
+        success: true,
+        team: teamStack.getAll()
+    });
+});
+
+// ลบ Pokémon ออกจาก Stack
+app.post("/team/remove", (req, res) => {
+    const id = Number(req.body.id);
+    const tempStack = new Stack();
+    let removed = null;
+
+    // ย้ายตัวด้านบนออกชั่วคราวจนเจอตัวที่ต้องการลบ
+    while (!teamStack.isEmpty()) {
+        const top = teamStack.peek();
+
+        if (Number(top.id) === id) {
+            removed = teamStack.pop();
+            break;
+        }
+
+        tempStack.push(teamStack.pop());
+    }
+
+    // นำตัวที่ย้ายออกชั่วคราวกลับเข้า Stack
+    while (!tempStack.isEmpty()) {
+        teamStack.push(tempStack.pop());
+    }
+
+    res.json({
+        success: true,
+        removed,
+        team: teamStack.getAll()
+    });
+});
+
+// ล้าง Stack ทั้งหมด
+app.post("/team/clear", (req, res) => {
+    while (!teamStack.isEmpty()) {
+        teamStack.pop();
+    }
+
+    res.json({
+        success: true,
+        team: teamStack.getAll()
+    });
+});
+
+// ตั้งค่า Stack ใหม่ เช่น ตอนโหลดทีมที่บันทึกไว้
+app.post("/team/set", (req, res) => {
+    while (!teamStack.isEmpty()) {
+        teamStack.pop();
+    }
+
+    const newTeam = Array.isArray(req.body.team) ? req.body.team.slice(0, 6) : [];
+
+    newTeam.forEach(pokemon => teamStack.push(pokemon));
+
+    res.json({
+        success: true,
+        team: teamStack.getAll()
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`เซิร์ฟเวอร์พร้อมใช้งานที่ http://localhost:${PORT}`);
