@@ -160,6 +160,10 @@
     .save-button { background: linear-gradient(135deg, #2196f3, #1565c0); }
     .load-button { background: linear-gradient(135deg, #ab47bc, #6a1b9a); }
     .clear-button, .remove-button { background: linear-gradient(135deg, #ef5350, #c62828); }
+    
+    /* สไตล์สำหรับปุ่ม Undo และ Redo */
+    .undo-button { background: linear-gradient(135deg, #f57c00, #e65100); }
+    .redo-button { background: linear-gradient(135deg, #0288d1, #01579b); }
 
     /* ---------- Selected Pokémon ---------- */
 
@@ -684,8 +688,11 @@
             <div class="team-count"><span id="teamCount">0</span> / 6</div>
         </div>
 
+        <!-- ปรับแต่งปุ่มการควบคุมทีม (พร้อมผูก class Undo/Redo) -->
         <div class="team-buttons">
             <button class="clear-button" onclick="clearTeam()">🗑️ ล้างทีมที่กำลังจัด</button>
+            <button class="undo-button" onclick="undoTeam()">↩️ ย้อนกลับ</button>
+            <button class="redo-button" onclick="redoTeam()">↪️ ทำซ้ำ</button>
         </div>
 
         <div id="teamGrid" class="team-grid">
@@ -725,7 +732,7 @@
                 <option value="water">Water 💧</option>
                 <option value="grass">Grass 🌿</option>
                 <option value="electric">Electric ⚡</option>
-                <option value="ice">Ice ❄️</option>
+                <option value="ice">Ice ❄️️</option>
                 <option value="fighting">Fighting 🥊</option>
                 <option value="poison">Poison ☠️</option>
                 <option value="ground">Ground 🌍</option>
@@ -792,9 +799,7 @@ const typeGradients = {
 };
 
 function gradientForTypes(types) {
-
     const list = (types && types.length) ? types : ["normal"];
-
     const first = typeGradients[list[0]] || typeGradients.normal;
     const second = list[1]
         ? (typeGradients[list[1]] || typeGradients.normal)
@@ -804,7 +809,7 @@ function gradientForTypes(types) {
 }
 
 // ========================================
-// ตัวแปร
+// ตัวแปรสถานะระบบ
 // ========================================
 
 let allPokemons = [];
@@ -817,7 +822,7 @@ const PAGE_SIZE = 25;
 let searchTimer = null;
 
 // ========================================
-// โหลดข้อมูล Pokémon
+// โหลดข้อมูล Pokémon จาก API
 // ========================================
 
 async function loadDashboard(page = 1) {
@@ -873,11 +878,10 @@ async function loadDashboard(page = 1) {
 }
 
 // ========================================
-// แสดง Pokémon
+// แสดงการ์ด Pokémon บนหน้าเว็บ
 // ========================================
 
 function renderPokemons(pokemons) {
-
     const grid = document.getElementById("pokemonGrid");
     grid.innerHTML = "";
 
@@ -887,10 +891,8 @@ function renderPokemons(pokemons) {
     }
 
     pokemons.forEach(pokemon => {
-
         const card = document.createElement("div");
         card.className = "pokemon-card";
-
         const gradient = gradientForTypes(pokemon.types);
 
         card.innerHTML = `
@@ -917,11 +919,10 @@ function renderPokemons(pokemons) {
 }
 
 // ========================================
-// เลือก Pokémon
+// แสดงรายละเอียด Pokémon ที่เลือกใน Popup
 // ========================================
 
 function selectPokemon(pokemon) {
-
     selectedPokemon = pokemon;
 
     const box = document.getElementById("selectedPokemon");
@@ -960,11 +961,10 @@ function selectPokemon(pokemon) {
 }
 
 // ========================================
-// เพิ่มเข้าทีม
+// เพิ่ม Pokémon เข้าทีม
 // ========================================
 
 async function addToTeam() {
-
     if (!selectedPokemon) {
         alert("กรุณาเลือก Pokémon ก่อน");
         return;
@@ -1007,26 +1007,21 @@ async function addToTeam() {
 }
 
 // ========================================
-// ปิดหน้าต่าง Pokémon ที่เลือก
+// ปิด Popup Pokémon ที่เลือก
 // ========================================
 
 function closeSelectedModal(event) {
-
-    // ถ้าคลิกด้านในหน้าต่าง ไม่ต้องปิด
     if (event && event.target !== event.currentTarget) {
         return;
     }
 
     const modal = document.getElementById("selectedModal");
-
     if (modal) {
         modal.classList.remove("show");
     }
-
     document.body.classList.remove("modal-open");
 }
 
-// ปิด Popup ด้วยปุ่ม Escape
 document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
         closeSelectedModal();
@@ -1034,11 +1029,10 @@ document.addEventListener("keydown", (event) => {
 });
 
 // ========================================
-// แสดงทีม
+// แสดงสมาชิกในทีม
 // ========================================
 
 function renderTeam() {
-
     const grid = document.getElementById("teamGrid");
     document.getElementById("teamCount").textContent = team.length;
 
@@ -1050,10 +1044,8 @@ function renderTeam() {
     }
 
     team.forEach(pokemon => {
-
         const card = document.createElement("div");
         card.className = "team-card";
-
         const gradient = gradientForTypes(pokemon.types);
 
         card.innerHTML = `
@@ -1072,11 +1064,10 @@ function renderTeam() {
 }
 
 // ========================================
-// ลบออกจากทีม
+// ลบ Pokémon ออกจากทีม
 // ========================================
 
 async function removeFromTeam(id) {
-
     try {
         const response = await fetch("/team/remove", {
             method: "POST",
@@ -1101,11 +1092,10 @@ async function removeFromTeam(id) {
 }
 
 // ========================================
-// รวมค่าพลัง
+// คำนวณรวมค่าพลังของทีมทั้งหมด
 // ========================================
 
 function updateTotalStats() {
-
     let hp = 0, attack = 0, defense = 0, specialAttack = 0, specialDefense = 0, speed = 0;
 
     team.forEach(pokemon => {
@@ -1126,33 +1116,26 @@ function updateTotalStats() {
 }
 
 // ========================================
-// ค้นหา + เลือกธาตุ
+// การกรองและการค้นหา Pokémon
 // ========================================
 
 function filterPokemons() {
-
     clearTimeout(searchTimer);
-
     searchTimer = setTimeout(() => {
         currentPage = 1;
         loadDashboard(1);
     }, 300);
 }
 
-// ========================================
-// เรียงตามค่าพลัง
-// ========================================
-
 function sortPokemons() {
     loadDashboard(currentPage);
 }
 
 // ========================================
-// เปลี่ยนหน้า Pokémon
+// การจัดการตัวแบ่งหน้า (Pagination)
 // ========================================
 
 function changePage(page) {
-
     if (page < 1 || page > totalPages || page === currentPage) {
         return;
     }
@@ -1167,13 +1150,10 @@ function changePage(page) {
 }
 
 function renderPagination() {
-
     const container = document.getElementById("pagination");
 
     if (!container || totalPages <= 1) {
-        if (container) {
-            container.innerHTML = "";
-        }
+        if (container) container.innerHTML = "";
         return;
     }
 
@@ -1184,27 +1164,17 @@ function renderPagination() {
     const pages = [];
 
     if (totalPages <= 7) {
-        for (let i = 1; i <= totalPages; i++) {
-            pages.push(i);
-        }
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
         pages.push(1);
-
-        if (currentPage > 4) {
-            pages.push("...");
-        }
+        if (currentPage > 4) pages.push("...");
 
         const start = Math.max(2, currentPage - 1);
         const end = Math.min(totalPages - 1, currentPage + 1);
 
-        for (let i = start; i <= end; i++) {
-            pages.push(i);
-        }
+        for (let i = start; i <= end; i++) pages.push(i);
 
-        if (currentPage < totalPages - 3) {
-            pages.push("...");
-        }
-
+        if (currentPage < totalPages - 3) pages.push("...");
         pages.push(totalPages);
     }
 
@@ -1229,13 +1199,12 @@ function renderPagination() {
 }
 
 // ========================================
-// ทีมที่บันทึกไว้ (4 ช่องตายตัว)
+// ระบบบันทึกทีมลง LocalStorage (Save Slots)
 // ========================================
 
 const TEAM_SLOT_COUNT = 4;
 
 function getTeamSlots() {
-
     try {
         const raw = localStorage.getItem("pokemonTeamSlots");
         const data = raw ? JSON.parse(raw) : [];
@@ -1246,7 +1215,6 @@ function getTeamSlots() {
         }
 
         return slots.slice(0, TEAM_SLOT_COUNT);
-
     } catch (error) {
         console.error(error);
         return new Array(TEAM_SLOT_COUNT).fill(null);
@@ -1254,14 +1222,12 @@ function getTeamSlots() {
 }
 
 function renderTeamSlots() {
-
     const container = document.getElementById("teamSlots");
     const slots = getTeamSlots();
 
     container.innerHTML = "";
 
     slots.forEach((slot, index) => {
-
         const card = document.createElement("div");
         card.className = "team-slot-card";
 
@@ -1285,7 +1251,6 @@ function renderTeamSlots() {
 }
 
 function saveTeamToSlot(index) {
-
     if (team.length === 0) {
         alert("ยังไม่มี Pokémon ในทีมที่กำลังจัดอยู่");
         return;
@@ -1296,10 +1261,7 @@ function saveTeamToSlot(index) {
 
     if (alreadyHasTeam) {
         const confirmOverwrite = confirm(`ทีม ${index + 1} มีข้อมูลอยู่แล้ว ต้องการเขียนทับหรือไม่?`);
-
-        if (!confirmOverwrite) {
-            return;
-        }
+        if (!confirmOverwrite) return;
     }
 
     slots[index] = [...team];
@@ -1310,7 +1272,6 @@ function saveTeamToSlot(index) {
 }
 
 function loadTeamSlot(index) {
-
     const slots = getTeamSlots();
     const slot = slots[index];
 
@@ -1321,7 +1282,7 @@ function loadTeamSlot(index) {
 
     team = [...slot];
 
-    // ให้ Stack ใน server ตรงกับทีมที่โหลด
+    // ซิงค์ทีมใหม่เข้าสู่ Stack ฝั่ง Server
     fetch("/team/set", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1335,21 +1296,17 @@ function loadTeamSlot(index) {
 }
 
 // ========================================
-// ล้างทีม
+// ฟังก์ชันล้างทีมทั้งหมด
 // ========================================
 
 function clearTeam() {
-
     if (team.length === 0) {
         alert("ตอนนี้ทีมว่างอยู่แล้ว");
         return;
     }
 
     const confirmClear = confirm("ต้องการล้าง Pokémon ในทีมทั้งหมดหรือไม่?");
-
-    if (!confirmClear) {
-        return;
-    }
+    if (!confirmClear) return;
 
     team = [];
 
@@ -1362,7 +1319,67 @@ function clearTeam() {
 }
 
 // ========================================
-// ปุ่มเลื่อนขึ้นด้านบน
+// ฟังก์ชันระบบ Undo (ย้อนกลับ)
+// ========================================
+
+async function undoTeam() {
+    try {
+        const response = await fetch("/team/undo", {
+            method: "POST"
+        });
+
+        if (!response.ok) throw new Error("ย้อนกลับไม่สำเร็จ");
+
+        const data = await response.json();
+
+        // แสดงแจ้งเตือนกรณีไม่มีประวัติย้อนกลับ
+        if (!data.success) {
+            alert(data.message || "ไม่มีรายการให้ย้อนกลับแล้ว");
+            return;
+        }
+
+        team = data.team || [];
+        renderTeam();
+        updateTotalStats();
+
+    } catch (error) {
+        console.error(error);
+        alert("ย้อนกลับไม่สำเร็จ");
+    }
+}
+
+// ========================================
+// ฟังก์ชันระบบ Redo (ทำซ้ำ)
+// ========================================
+
+async function redoTeam() {
+    try {
+        const response = await fetch("/team/redo", {
+            method: "POST"
+        });
+
+        if (!response.ok) throw new Error("ทำซ้ำไม่สำเร็จ");
+
+        const data = await response.json();
+
+        // แสดงแจ้งเตือนกรณีไม่มีประวัติทำซ้ำ
+        if (!data.success) {
+            alert(data.message || "ไม่มีรายการให้ทำซ้ำแล้ว");
+            return;
+        }
+
+        team = data.team || [];
+        renderTeam();
+        updateTotalStats();
+
+    } catch (error) {
+        console.error(error);
+        alert("ทำซ้ำไม่สำเร็จ");
+    }
+}
+
+// ========================================
+// ปุ่มเลื่อนขึ้นด้านบน (Scroll To Top)
 // ========================================
 
 function scrollToTop() {
@@ -1371,7 +1388,6 @@ function scrollToTop() {
 
 window.addEventListener("scroll", () => {
     const btn = document.getElementById("scrollTopBtn");
-
     if (window.scrollY > 400) {
         btn.classList.add("show");
     } else {
@@ -1380,7 +1396,7 @@ window.addEventListener("scroll", () => {
 });
 
 // ========================================
-// เริ่มต้น
+// เริ่มต้นการทำงาน
 // ========================================
 
 renderTeamSlots();
