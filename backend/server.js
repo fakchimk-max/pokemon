@@ -212,6 +212,54 @@ app.get("/abilities", async (req, res) => {
     }
 });
 
+// ========================================
+// API ดึงข้อมูลไอเทม (Items)
+// ========================================
+app.get("/items", async (req, res) => {
+    try {
+        const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+        const limit = 20;
+        const offset = (page - 1) * limit;
+
+        const response = await fetch(`https://pokeapi.co/api/v2/item?limit=${limit}&offset=${offset}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+        if (!response.ok) throw new Error("Fetch items failed");
+        const data = await response.json();
+
+        const items = await Promise.all(
+            data.results.map(async (item) => {
+                const resDetail = await fetch(item.url, { headers: { "User-Agent": "Mozilla/5.0" } });
+                if (!resDetail.ok) return null;
+                const detail = await resDetail.json();
+
+                // ค้นหาคำอธิบายภาษาอังกฤษ
+                const effectText = detail.effect_entries.find(e => e.language.name === "en");
+                const flavorText = detail.flavor_text_entries.find(e => e.language.name === "en");
+
+                return {
+                    id: detail.id,
+                    name: detail.name,
+                    category: detail.category?.name || "general",
+                    cost: detail.cost || 0,
+                    image: detail.sprites?.default || "", // รูปภาพ Pixel Art ของไอเทม
+                    description: effectText ? effectText.short_effect.replace(/\f|\n/g, " ") 
+                               : (flavorText ? flavorText.flavor_text.replace(/\f|\n/g, " ") : "ไม่มีคำอธิบาย")
+                };
+            })
+        );
+
+        res.json({
+            items: items.filter(i => i !== null),
+            page,
+            totalPages: Math.ceil(data.count / limit)
+        });
+    } catch (error) {
+        console.error("Fetch Items Error:", error);
+        res.status(502).json({ error: "โหลดข้อมูลไอเทมไม่สำเร็จ" });
+    }
+});
+
 function insertionSort(array, field = "id", order = "asc") {
     const arr = [...array];
     for (let i = 1; i < arr.length; i++) {
