@@ -1,3 +1,16 @@
+import React from 'react';
+
 export default function Pokedex() {
-  return <h1>หน้า Pokedex</h1>;
+  return (
+    <iframe
+      src="/index.html#pokedex"
+      title="Pokedex"
+      style={{
+        width: '100%',
+        height: '100vh',
+        border: 'none',
+        display: 'block'
+      }}
+    />
+  );
 }

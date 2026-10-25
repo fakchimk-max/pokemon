@@ -6,8 +6,21 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // ========================================
-// Cache ระบบเก็บข้อมูลธาตุ
+// ช่วง ID ของแต่ละ Generation
 // ========================================
+const GEN_RANGES = {
+    '1': [1, 151],
+    '2': [152, 251],
+    '3': [252, 386],
+    '4': [387, 493],
+    '5': [494, 649],
+    '6': [650, 721],
+    '7': [722, 809],
+    '8': [810, 905],
+    '9': [906, 1025]
+};
+
+// Cache เก็บข้อมูลธาตุ
 const typeCache = new Map();
 
 async function getPokemonNamesByType(type) {
@@ -26,21 +39,20 @@ async function getPokemonNamesByType(type) {
     return names;
 }
 
-// ========================================
-// Routes การดึงหน้าเว็บและข้อมูล Pokémon
-// ========================================
-
 app.get("/", (req, res) => {
     res.send("Pokémon API Server is running!");
 });
 
-// API สำหรับดึง ค้นหา กรอง และเรียงลำดับ Pokémon
+// ========================================
+// API ดึงข้อมูล Pokémon (พร้อมตัวกรอง Gen)
+// ========================================
 app.get("/pokemons", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
         const limit = Math.min(25, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
         const search = String(req.query.search || "").toLowerCase().trim();
         const type = String(req.query.type || "all").toLowerCase().trim();
+        const gen = String(req.query.gen || "all").toLowerCase().trim();
         const stat = String(req.query.stat || "id");
         const order = String(req.query.order || "asc");
 
@@ -50,16 +62,24 @@ app.get("/pokemons", async (req, res) => {
         if (!resAll.ok) throw new Error(`API Error: ${resAll.status}`);
         const dataAll = await resAll.json();
 
-        let mainList = dataAll.results.filter(p => {
+        let mainList = dataAll.results.map(p => {
             const idMatch = p.url.match(/\/pokemon\/(\d+)\//);
             const id = idMatch ? parseInt(idMatch[1], 10) : 0;
-            return id >= 1 && id <= 1025;
-        });
+            return { ...p, id };
+        }).filter(p => p.id >= 1 && p.id <= 1025);
 
+        // 1. กรองตามชื่อ
         if (search) {
             mainList = mainList.filter(p => p.name.toLowerCase().includes(search));
         }
 
+        // 2. กรองตาม Gen (คำนวณจาก ID)
+        if (gen !== "all" && GEN_RANGES[gen]) {
+            const [minId, maxId] = GEN_RANGES[gen];
+            mainList = mainList.filter(p => p.id >= minId && p.id <= maxId);
+        }
+
+        // 3. กรองตามธาตุ
         if (type !== "all") {
             const typeNames = await getPokemonNamesByType(type);
             mainList = mainList.filter(p => typeNames.has(p.name));
@@ -113,7 +133,7 @@ app.get("/pokemons", async (req, res) => {
 });
 
 // ========================================
-// API ดึงข้อมูล ท่าโจมตี (Moves)
+// API ท่าโจมตี & ความสามารถพิเศษ
 // ========================================
 app.get("/moves", async (req, res) => {
     try {
@@ -132,7 +152,6 @@ app.get("/moves", async (req, res) => {
                 const resDetail = await fetch(item.url, { headers: { "User-Agent": "Mozilla/5.0" } });
                 if (!resDetail.ok) return null;
                 const detail = await resDetail.json();
-
                 const flavorText = detail.flavor_text_entries.find(e => e.language.name === "en");
 
                 return {
@@ -154,14 +173,10 @@ app.get("/moves", async (req, res) => {
             totalPages: Math.ceil(data.count / limit)
         });
     } catch (error) {
-        console.error("Moves Fetch Error:", error);
-        res.status(502).json({ error: "โหลดข้อมูลท่าโจมตีไม่สำเร็จ" });
+        res.status(502).json({ error: "โหลดข้อมูลไม่สำเร็จ" });
     }
 });
 
-// ========================================
-// API ดึงข้อมูล ความสามารถพิเศษ (Abilities)
-// ========================================
 app.get("/abilities", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
@@ -179,7 +194,6 @@ app.get("/abilities", async (req, res) => {
                 const resDetail = await fetch(item.url, { headers: { "User-Agent": "Mozilla/5.0" } });
                 if (!resDetail.ok) return null;
                 const detail = await resDetail.json();
-
                 const effectText = detail.effect_entries.find(e => e.language.name === "en");
 
                 return {
@@ -196,18 +210,15 @@ app.get("/abilities", async (req, res) => {
             totalPages: Math.ceil(data.count / limit)
         });
     } catch (error) {
-        console.error("Abilities Fetch Error:", error);
-        res.status(502).json({ error: "โหลดข้อมูลความสามารถไม่สำเร็จ" });
+        res.status(502).json({ error: "โหลดข้อมูลไม่สำเร็จ" });
     }
 });
 
 // ========================================
-// Algorithm: Insertion Sort
+// Algorithm & Data Structure (Stack / Sort)
 // ========================================
-
 function insertionSort(array, field = "id", order = "asc") {
     const arr = [...array];
-
     for (let i = 1; i < arr.length; i++) {
         const current = arr[i];
         const currentValue = Number(current[field]) || 0;
@@ -216,9 +227,7 @@ function insertionSort(array, field = "id", order = "asc") {
         while (j >= 0) {
             const previousValue = Number(arr[j][field]) || 0;
             let shouldMove = order === "asc" ? previousValue > currentValue : previousValue < currentValue;
-
             if (!shouldMove) break;
-
             arr[j + 1] = arr[j];
             j--;
         }
@@ -227,38 +236,14 @@ function insertionSort(array, field = "id", order = "asc") {
     return arr;
 }
 
-// ========================================
-// Data Structure: Stack & History System
-// ========================================
-
 class Stack {
-    constructor() {
-        this.items = [];
-    }
-
-    push(item) {
-        this.items.push(item);
-    }
-
-    pop() {
-        return this.items.pop();
-    }
-
-    peek() {
-        return this.items[this.items.length - 1];
-    }
-
-    isEmpty() {
-        return this.items.length === 0;
-    }
-
-    clear() {
-        this.items = [];
-    }
-
-    getAll() {
-        return [...this.items];
-    }
+    constructor() { this.items = []; }
+    push(item) { this.items.push(item); }
+    pop() { return this.items.pop(); }
+    peek() { return this.items[this.items.length - 1]; }
+    isEmpty() { return this.items.length === 0; }
+    clear() { this.items = []; }
+    getAll() { return [...this.items]; }
 }
 
 const teamStack = new Stack();
@@ -266,8 +251,7 @@ const undoStack = new Stack();
 const redoStack = new Stack();
 
 function saveHistory() {
-    const snapshot = JSON.parse(JSON.stringify(teamStack.getAll()));
-    undoStack.push(snapshot);
+    undoStack.push(JSON.parse(JSON.stringify(teamStack.getAll())));
     redoStack.clear();
 }
 
@@ -277,103 +261,101 @@ function setTeam(newTeam) {
 }
 
 // ========================================
-// Endpoints: จัดการทีม Pokémon (Team API)
+// Team Endpoints
 // ========================================
-
 app.post("/team/push", (req, res) => {
-    if (teamStack.getAll().length >= 6) {
-        return res.status(400).json({ error: "ทีมเต็มแล้ว" });
-    }
-
+    if (teamStack.getAll().length >= 6) return res.status(400).json({ error: "ทีมเต็มแล้ว" });
     saveHistory();
     teamStack.push(req.body);
-
-    res.json({
-        success: true,
-        team: teamStack.getAll()
-    });
+    res.json({ success: true, team: teamStack.getAll() });
 });
 
 app.post("/team/remove", (req, res) => {
     const id = Number(req.body.id);
     const currentTeam = teamStack.getAll();
     const index = currentTeam.findIndex(p => Number(p.id) === id);
-
     if (index !== -1) {
         saveHistory();
         currentTeam.splice(index, 1);
         setTeam(currentTeam);
     }
-
-    res.json({
-        success: true,
-        team: teamStack.getAll()
-    });
+    res.json({ success: true, team: teamStack.getAll() });
 });
 
 app.post("/team/clear", (req, res) => {
-    if (!teamStack.isEmpty()) {
-        saveHistory();
-        teamStack.clear();
-    }
-
-    res.json({
-        success: true,
-        team: teamStack.getAll()
-    });
+    if (!teamStack.isEmpty()) { saveHistory(); teamStack.clear(); }
+    res.json({ success: true, team: teamStack.getAll() });
 });
 
 app.post("/team/set", (req, res) => {
     saveHistory();
-    const newTeam = Array.isArray(req.body.team) ? req.body.team.slice(0, 6) : [];
-    setTeam(newTeam);
-
-    res.json({
-        success: true,
-        team: teamStack.getAll()
-    });
+    setTeam(Array.isArray(req.body.team) ? req.body.team.slice(0, 6) : []);
+    res.json({ success: true, team: teamStack.getAll() });
 });
 
-app.post("/team/undo", (req, res) => {
-    if (undoStack.isEmpty()) {
-        return res.json({
-            success: false,
-            message: "ไม่มีประวัติให้ย้อนกลับ",
-            team: teamStack.getAll()
+// Endpoint สำหรับดึงข้อมูลโปเกมอนแบบละเอียด (Pokédex Detail)
+app.get('/pokedex-detail', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 25;
+        const search = (req.query.search || '').toLowerCase();
+        const type = req.query.type || 'all';
+        const offset = (page - 1) * limit;
+
+        // ดึงข้อมูลจาก PokeAPI
+        const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=151&offset=0`);
+        const data = await response.json();
+
+        // ดึงรายละเอียดแต่ละตัว
+        const pokemonPromises = data.results.map(async (p) => {
+            const detailRes = await fetch(p.url);
+            const detail = await detailRes.json();
+            
+            const speciesRes = await fetch(detail.species.url);
+            const species = await speciesRes.json();
+
+            // ค้นหาคำอธิบายภาษาอังกฤษ
+            const flavorEntry = species.flavor_text_entries.find(e => e.language.name === 'en');
+            const description = flavorEntry ? flavorEntry.flavor_text.replace(/[\f\n\r]/g, ' ') : '';
+
+            return {
+                id: detail.id,
+                name: detail.name,
+                image: detail.sprites.other['official-artwork'].front_default || detail.sprites.front_default,
+                types: detail.types.map(t => t.type.name),
+                height: detail.height,
+                weight: detail.weight,
+                habitat: species.habitat ? species.habitat.name : 'unknown',
+                description: description
+            };
         });
-    }
 
-    const currentSnapshot = JSON.parse(JSON.stringify(teamStack.getAll()));
-    redoStack.push(currentSnapshot);
+        let pokemons = await Promise.all(pokemonPromises);
 
-    const previousTeam = undoStack.pop();
-    setTeam(previousTeam);
+        // กรองตามชื่อ
+        if (search) {
+            pokemons = pokemons.filter(p => p.name.toLowerCase().includes(search));
+        }
 
-    res.json({
-        success: true,
-        team: teamStack.getAll()
-    });
-});
+        // กรองตามธาตุ
+        if (type !== 'all') {
+            pokemons = pokemons.filter(p => p.types.includes(type));
+        }
 
-app.post("/team/redo", (req, res) => {
-    if (redoStack.isEmpty()) {
-        return res.json({
-            success: false,
-            message: "ไม่มีประวัติให้ทำซ้ำ",
-            team: teamStack.getAll()
+        const totalItems = pokemons.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const paginatedPokemons = pokemons.slice(offset, offset + limit);
+
+        res.json({
+            pokemons: paginatedPokemons,
+            page,
+            totalPages,
+            totalItems
         });
+    } catch (error) {
+        console.error("Error fetching pokedex detail:", error);
+        res.status(500).json({ error: "Failed to fetch pokedex details" });
     }
-
-    const currentSnapshot = JSON.parse(JSON.stringify(teamStack.getAll()));
-    undoStack.push(currentSnapshot);
-
-    const nextTeam = redoStack.pop();
-    setTeam(nextTeam);
-
-    res.json({
-        success: true,
-        team: teamStack.getAll()
-    });
 });
 
 app.listen(PORT, () => {

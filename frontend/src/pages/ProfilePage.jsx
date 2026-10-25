@@ -1,8 +1,4 @@
-export default function Profile() {
-  return (
-    <section>
-      <h1>Profile</h1>
-      <p>ผู้ใช้: Anan (650001)</p>
-    </section>
-  );
+import React from 'react'
+export default function ProfilePage() {
+  return <iframe src="/index.html#profile" title="Profile" style={{ width: '100%', height: '100vh', border: 'none' }} />
 }
