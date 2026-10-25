@@ -918,7 +918,7 @@
             </div>
         </div>
     </div>
-    <a class="nav-tab" href="#profile" data-page="profile"><span class="pokeball"></span>โปรไฟล์</a>
+    <a class="nav-tab" href="#profile" data-page="profile"><span class="pokeball"></span>ไอเทม</a>
 </nav>
 
 <!-- ========================= -->
@@ -1095,7 +1095,6 @@
 
 <main id="page-moves" class="page page-blank">
     <div class="container" style="padding-top: 20px;">
-        <!-- แสดงรายการท่าโจมตี -->
         <div id="sub-attacks" class="subpage active">
             <div class="panel">
                 <h2>รายการท่าโจมตี (Moves)</h2>
@@ -1104,7 +1103,6 @@
             </div>
         </div>
 
-        <!-- แสดงรายการความสามารถพิเศษ -->
         <div id="sub-abilities" class="subpage">
             <div class="panel">
                 <h2>รายการความสามารถพิเศษ (Abilities)</h2>
@@ -1145,6 +1143,39 @@ const typeGradients = {
     steel:    ["#cfd8dc", "#78909c"],
     fairy:    ["#ffc1e3", "#e91e8c"]
 };
+
+// ตารางธาตุที่เกื้อกูลกัน / เล่นเข้าขาได้ดี
+const typeSynergyMap = {
+    fire: ['grass', 'steel', 'water', 'ice'],
+    water: ['grass', 'electric', 'ground', 'fire'],
+    grass: ['fire', 'water', 'poison', 'flying'],
+    electric: ['water', 'ground', 'dragon'],
+    ice: ['dragon', 'ground', 'steel', 'fire'],
+    fighting: ['psychic', 'flying', 'dark', 'steel'],
+    poison: ['dark', 'ground', 'grass'],
+    ground: ['flying', 'electric', 'steel', 'fire'],
+    flying: ['ground', 'rock', 'electric'],
+    psychic: ['dark', 'ghost', 'fighting'],
+    bug: ['fire', 'flying', 'rock'],
+    rock: ['water', 'grass', 'fighting'],
+    ghost: ['dark', 'normal', 'psychic'],
+    dragon: ['fairy', 'steel', 'ice'],
+    dark: ['psychic', 'ghost', 'fighting'],
+    steel: ['fairy', 'dragon', 'fire'],
+    fairy: ['steel', 'poison', 'dragon'],
+    normal: ['fighting', 'ghost']
+};
+
+function isGoodSynergy(pokemon) {
+    if (!team || team.length === 0) return false;
+    const currentTeamTypes = team.flatMap(p => p.types || []);
+    return (pokemon.types || []).some(type => {
+        return currentTeamTypes.some(teamType => {
+            const recommendedTypes = typeSynergyMap[teamType] || [];
+            return recommendedTypes.includes(type);
+        });
+    });
+}
 
 function gradientForTypes(types) {
     const list = (types && types.length) ? types : ["normal"];
@@ -1233,13 +1264,18 @@ function renderPokemons(pokemons) {
         card.className = "pokemon-card";
         const gradient = gradientForTypes(pokemon.types);
 
+        const hasSynergy = isGoodSynergy(pokemon);
+        const starBadge = hasSynergy 
+            ? `<span style="color: var(--gold); font-size: 14px; margin-left: 4px;" title="เล่นเข้าขาได้ดีกับคนในทีม!">⭐</span>` 
+            : '';
+
         card.innerHTML = `
             <div class="card-top" style="--card-bg: ${gradient}; background: ${gradient};">
                 <img src="${pokemon.image}" alt="${pokemon.name}">
             </div>
             <div class="card-info">
                 <div class="pokemon-id">#${pokemon.id}</div>
-                <h3>${pokemon.name}</h3>
+                <h3>${pokemon.name} ${starBadge}</h3>
                 <div>
                     ${(pokemon.types || [])
                         .map(type => `<span class="pokemon-type">${type}</span>`)
@@ -1328,6 +1364,7 @@ async function addToTeam() {
 
         renderTeam();
         updateTotalStats();
+        renderPokemons(displayedPokemons);
         closeSelectedModal();
 
     } catch (error) {
@@ -1402,6 +1439,7 @@ async function removeFromTeam(id) {
 
         renderTeam();
         updateTotalStats();
+        renderPokemons(displayedPokemons);
 
     } catch (error) {
         console.error(error);
@@ -1592,82 +1630,10 @@ function loadTeamSlot(index) {
 
     renderTeam();
     updateTotalStats();
+    renderPokemons(displayedPokemons);
 
     alert(`โหลดทีม ${index + 1} เรียบร้อยแล้ว 📂`);
 }
-
-function clearTeam() {
-    if (team.length === 0) {
-        alert("ตอนนี้ทีมว่างอยู่แล้ว");
-        return;
-    }
-
-    const confirmClear = confirm("ต้องการล้าง Pokémon ในทีมทั้งหมดหรือไม่?");
-    if (!confirmClear) return;
-
-    team = [];
-
-    fetch("/team/clear", {
-        method: "POST"
-    }).catch(error => console.error(error));
-
-    renderTeam();
-    updateTotalStats();
-}
-
-async function undoTeam() {
-    try {
-        const response = await fetch("/team/undo", {
-            method: "POST"
-        });
-
-        if (!response.ok) throw new Error("ย้อนกลับไม่สำเร็จ");
-
-        const data = await response.json();
-
-        if (!data.success) {
-            alert(data.message || "ไม่มีรายการให้ย้อนกลับแล้ว");
-            return;
-        }
-
-        team = data.team || [];
-        renderTeam();
-        updateTotalStats();
-
-    } catch (error) {
-        console.error(error);
-        alert("ย้อนกลับไม่สำเร็จ");
-    }
-}
-
-async function redoTeam() {
-    try {
-        const response = await fetch("/team/redo", {
-            method: "POST"
-        });
-
-        if (!response.ok) throw new Error("ทำซ้ำไม่สำเร็จ");
-
-        const data = await response.json();
-
-        if (!data.success) {
-            alert(data.message || "ไม่มีรายการให้ทำซ้ำแล้ว");
-            return;
-        }
-
-        team = data.team || [];
-        renderTeam();
-        updateTotalStats();
-
-    } catch (error) {
-        console.error(error);
-        alert("ทำซ้ำไม่สำเร็จ");
-    }
-}
-
-// ========================================
-// ฟังก์ชันดึงและแสดงข้อมูล Pokédex
-// ========================================
 
 let currentDexPage = 1;
 let dexSearchTimer = null;
@@ -1717,7 +1683,7 @@ async function loadPokedex(page = 1) {
                     return {
                         id: detail.id,
                         name: detail.name,
-                        image: detail.sprites.other?.['official-artwork']?.front_default || detail.sprites.front_default || '',
+                        image: detail.sprites.versions?.['generation-v']?.['black-white']?.animated?.front_default || detail.sprites.front_default || '',
                         types: detail.types ? detail.types.map(t => t.type.name) : ['normal'],
                         height: detail.height || 10,
                         weight: detail.weight || 100,
@@ -1819,9 +1785,6 @@ function filterDexPokemons() {
     }, 300);
 }
 
-// ========================================
-// ฟังก์ชันดึงและแสดงข้อมูล ท่าโจมตี (Moves)
-// ========================================
 let currentMovePage = 1;
 
 async function loadAttacks(page = 1) {
@@ -1891,9 +1854,6 @@ function renderMovesPagination(totalPages) {
     container.innerHTML = html;
 }
 
-// ========================================
-// ฟังก์ชันดึงและแสดงข้อมูล ความสามารถพิเศษ (Abilities) - ภาษาอังกฤษล้วน
-// ========================================
 let currentAbilityPage = 1;
 
 async function loadAbilities(page = 1) {

@@ -5,9 +5,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// ========================================
-// ช่วง ID ของแต่ละ Generation
-// ========================================
 const GEN_RANGES = {
     '1': [1, 151],
     '2': [152, 251],
@@ -20,7 +17,6 @@ const GEN_RANGES = {
     '9': [906, 1025]
 };
 
-// Cache เก็บข้อมูลธาตุ
 const typeCache = new Map();
 
 async function getPokemonNamesByType(type) {
@@ -43,9 +39,6 @@ app.get("/", (req, res) => {
     res.send("Pokémon API Server is running!");
 });
 
-// ========================================
-// API ดึงข้อมูล Pokémon (พร้อมตัวกรอง Gen)
-// ========================================
 app.get("/pokemons", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
@@ -68,18 +61,15 @@ app.get("/pokemons", async (req, res) => {
             return { ...p, id };
         }).filter(p => p.id >= 1 && p.id <= 1025);
 
-        // 1. กรองตามชื่อ
         if (search) {
             mainList = mainList.filter(p => p.name.toLowerCase().includes(search));
         }
 
-        // 2. กรองตาม Gen (คำนวณจาก ID)
         if (gen !== "all" && GEN_RANGES[gen]) {
             const [minId, maxId] = GEN_RANGES[gen];
             mainList = mainList.filter(p => p.id >= minId && p.id <= maxId);
         }
 
-        // 3. กรองตามธาตุ
         if (type !== "all") {
             const typeNames = await getPokemonNamesByType(type);
             mainList = mainList.filter(p => typeNames.has(p.name));
@@ -89,28 +79,39 @@ app.get("/pokemons", async (req, res) => {
         const start = (page - 1) * limit;
         const targetList = mainList.slice(start, start + limit);
 
-        const pagePokemons = await Promise.all(
-            targetList.map(async (pokemon) => {
+        // ดึงรายละเอียดแบบต่อคิวทีละตัว เพื่อไม่ให้โดน PokéAPI บล็อก 502
+        const pagePokemons = [];
+        for (const pokemon of targetList) {
+            try {
                 const resDetail = await fetch(pokemon.url, {
                     headers: { "User-Agent": "Mozilla/5.0" }
                 });
-                if (!resDetail.ok) return null;
-                const detail = await resDetail.json();
+                if (resDetail.ok) {
+                    const detail = await resDetail.json();
+                    
+                    // ดึงภาพ Animated Pixel Art
+                    const animImage = detail.sprites.versions?.['generation-v']?.['black-white']?.animated?.front_default 
+                        || detail.sprites.front_default 
+                        || detail.sprites.other?.['official-artwork']?.front_default 
+                        || '';
 
-                return {
-                    id: detail.id,
-                    name: detail.name,
-                    image: detail.sprites.front_default,
-                    hp: detail.stats[0].base_stat,
-                    attack: detail.stats[1].base_stat,
-                    defense: detail.stats[2].base_stat,
-                    specialAttack: detail.stats[3].base_stat,
-                    specialDefense: detail.stats[4].base_stat,
-                    speed: detail.stats[5].base_stat,
-                    types: detail.types.map(({ type }) => type.name)
-                };
-            })
-        );
+                    pagePokemons.push({
+                        id: detail.id,
+                        name: detail.name,
+                        image: animImage,
+                        hp: detail.stats[0].base_stat,
+                        attack: detail.stats[1].base_stat,
+                        defense: detail.stats[2].base_stat,
+                        specialAttack: detail.stats[3].base_stat,
+                        specialDefense: detail.stats[4].base_stat,
+                        speed: detail.stats[5].base_stat,
+                        types: detail.types.map(({ type }) => type.name)
+                    });
+                }
+            } catch (err) {
+                console.error(`Error fetching detail for ${pokemon.name}:`, err);
+            }
+        }
 
         const sortedPokemons = insertionSort(
             pagePokemons.filter(p => p !== null),
@@ -132,9 +133,6 @@ app.get("/pokemons", async (req, res) => {
     }
 });
 
-// ========================================
-// API ท่าโจมตี & ความสามารถพิเศษ
-// ========================================
 app.get("/moves", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
@@ -199,7 +197,7 @@ app.get("/abilities", async (req, res) => {
                 return {
                     id: detail.id,
                     name: detail.name,
-                    description: effectText ? effectText.short_effect.replace(/\f|\n/g, " ") : "ไม่มีคำอธิบาย"
+                    description: effectText ? effectText.short_effect.replace(/\f|\n/g, " ") : "No description available"
                 };
             })
         );
@@ -214,9 +212,6 @@ app.get("/abilities", async (req, res) => {
     }
 });
 
-// ========================================
-// Algorithm & Data Structure (Stack / Sort)
-// ========================================
 function insertionSort(array, field = "id", order = "asc") {
     const arr = [...array];
     for (let i = 1; i < arr.length; i++) {
@@ -260,9 +255,6 @@ function setTeam(newTeam) {
     newTeam.forEach(pokemon => teamStack.push(pokemon));
 }
 
-// ========================================
-// Team Endpoints
-// ========================================
 app.post("/team/push", (req, res) => {
     if (teamStack.getAll().length >= 6) return res.status(400).json({ error: "ทีมเต็มแล้ว" });
     saveHistory();
@@ -293,7 +285,6 @@ app.post("/team/set", (req, res) => {
     res.json({ success: true, team: teamStack.getAll() });
 });
 
-// Endpoint สำหรับดึงข้อมูลโปเกมอนแบบละเอียด (Pokédex Detail)
 app.get('/pokedex-detail', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -302,42 +293,45 @@ app.get('/pokedex-detail', async (req, res) => {
         const type = req.query.type || 'all';
         const offset = (page - 1) * limit;
 
-        // ดึงข้อมูลจาก PokeAPI
         const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=151&offset=0`);
         const data = await response.json();
 
-        // ดึงรายละเอียดแต่ละตัว
         const pokemonPromises = data.results.map(async (p) => {
             const detailRes = await fetch(p.url);
             const detail = await detailRes.json();
             
-            const speciesRes = await fetch(detail.species.url);
-            const species = await speciesRes.json();
+            let description = 'ไม่มีข้อมูลคำอธิบาย';
+            let habitat = 'unknown';
 
-            // ค้นหาคำอธิบายภาษาอังกฤษ
-            const flavorEntry = species.flavor_text_entries.find(e => e.language.name === 'en');
-            const description = flavorEntry ? flavorEntry.flavor_text.replace(/[\f\n\r]/g, ' ') : '';
+            try {
+                const speciesRes = await fetch(detail.species.url);
+                const species = await speciesRes.json();
+                if (species.habitat) habitat = species.habitat.name;
+                const flavorEntry = species.flavor_text_entries.find(e => e.language.name === 'en');
+                if (flavorEntry) description = flavorEntry.flavor_text.replace(/[\f\n\r]/g, ' ');
+            } catch(e) {}
 
             return {
                 id: detail.id,
                 name: detail.name,
-                image: detail.sprites.other['official-artwork'].front_default || detail.sprites.front_default,
+                image: detail.sprites.versions?.['generation-v']?.['black-white']?.animated?.front_default 
+                 || detail.sprites.front_default 
+                 || detail.sprites.other?.['official-artwork']?.front_default 
+                 || '',
                 types: detail.types.map(t => t.type.name),
                 height: detail.height,
                 weight: detail.weight,
-                habitat: species.habitat ? species.habitat.name : 'unknown',
+                habitat: habitat,
                 description: description
             };
         });
 
         let pokemons = await Promise.all(pokemonPromises);
 
-        // กรองตามชื่อ
         if (search) {
             pokemons = pokemons.filter(p => p.name.toLowerCase().includes(search));
         }
 
-        // กรองตามธาตุ
         if (type !== 'all') {
             pokemons = pokemons.filter(p => p.types.includes(type));
         }
