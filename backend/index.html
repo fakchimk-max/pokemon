@@ -652,10 +652,329 @@
             height: 46px;
         }
     }
+    /* ========================================
+       Top navigation (แถบเมนูด้านบน)
+       ======================================== */
+
+    .topnav {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        height: 62px;
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        gap: 6px;
+        padding: 0 16px;
+        background: linear-gradient(180deg, #0a0c22, #12163a);
+        border-bottom: 1px solid rgba(255, 204, 77, 0.25);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .nav-tab {
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        align-items: center;
+        padding: 0 40px 0 46px;
+        white-space: nowrap;
+        text-decoration: none;
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--text-dim);
+        transition: color 0.2s ease;
+    }
+
+    .nav-tab::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 6px 0;
+        z-index: -1;
+        transform: skewX(-20deg);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0);
+        transition: background 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .nav-tab:hover { color: var(--text); }
+
+    .nav-tab:hover::before { background: rgba(255, 255, 255, 0.07); }
+
+    .nav-tab:focus-visible {
+        outline: none;
+    }
+
+    .nav-tab:focus-visible::before {
+        box-shadow: 0 0 0 3px rgba(255, 204, 77, 0.45);
+    }
+
+    .nav-tab.active {
+        color: white;
+    }
+
+    .nav-tab.active::before {
+        background: linear-gradient(135deg, #3a4fe0, #7a3cf2);
+        box-shadow: 0 -2px 0 var(--gold) inset, 0 6px 18px rgba(90, 70, 240, 0.45);
+    }
+
+    /* Pokéball ที่เด้งขึ้นมาเมื่อเอาเมาส์ไปชี้ */
+
+    .pokeball {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        width: 24px;
+        height: 24px;
+        margin-top: -15px;
+        border-radius: 50%;
+        box-sizing: border-box;
+        border: 2px solid #15172b;
+        background: linear-gradient(180deg, #ef4444 0 45%, #15172b 45% 55%, #f4f5f9 55% 100%);
+        opacity: 0;
+        transform: translateY(14px) scale(0.3);
+        pointer-events: none;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+    }
+
+    .pokeball::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 8px;
+        height: 8px;
+        margin: -4px 0 0 -4px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        border: 2px solid #15172b;
+        background: #f4f5f9;
+    }
+
+    .nav-tab:hover .pokeball,
+    .nav-tab:focus-visible .pokeball {
+        animation:
+            ballPop 0.65s cubic-bezier(0.3, 0.85, 0.4, 1) forwards,
+            ballIdle 1s ease-in-out 0.65s infinite;
+    }
+
+    @keyframes ballPop {
+        0%   { opacity: 0; transform: translateY(14px) scale(0.3) rotate(0deg); }
+        45%  { opacity: 1; transform: translateY(-9px) scale(1.15) rotate(200deg); }
+        70%  { opacity: 1; transform: translateY(2px) scale(0.95) rotate(320deg); }
+        100% { opacity: 1; transform: translateY(0) scale(1) rotate(360deg); }
+    }
+
+    @keyframes ballIdle {
+        0%, 100% { opacity: 1; transform: translateY(0) rotate(360deg); }
+        50%      { opacity: 1; transform: translateY(-5px) rotate(372deg); }
+    }
+
+    /* ========================================
+       หน้าต่าง ๆ (Pages)
+       ======================================== */
+
+    .page { display: none; }
+
+    .page.active { display: block; }
+
+    .page-blank {
+        position: relative;
+        min-height: calc(100vh - 62px);
+        overflow: hidden;
+    }
+
+    /* ลายโปเกบอลจาง ๆ เป็นพื้นหลัง (ตกแต่งเฉย ๆ ไม่มีเนื้อหา) */
+    .page-blank::before {
+        content: "";
+        position: absolute;
+        right: -120px;
+        bottom: -120px;
+        width: 520px;
+        height: 520px;
+        border-radius: 50%;
+        background:
+            radial-gradient(circle at 50% 50%, #0f1230 0 9%, transparent 9.5%),
+            radial-gradient(circle at 50% 50%, #f4f5f9 0 13%, transparent 13.5%),
+            linear-gradient(180deg, var(--red) 0 46%, #f4f5f9 46% 54%, #f4f5f9 54% 100%);
+        opacity: 0.05;
+        pointer-events: none;
+    }
+
+    @media (max-width: 900px) {
+        .topnav {
+            height: auto;
+            min-height: 62px;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px 4px;
+            padding: 6px 8px;
+        }
+
+        .nav-tab {
+            height: 46px;
+            padding: 0 18px 0 36px;
+            font-size: 14px;
+        }
+
+        .pokeball {
+            left: 8px;
+            width: 20px;
+            height: 20px;
+            margin-top: -13px;
+        }
+    }
+
+    @media (max-width: 800px) {
+        .page-blank::before {
+            width: 340px;
+            height: 340px;
+            right: -90px;
+            bottom: -90px;
+        }
+    }
+
+    /* ========================================
+       เมนูย่อย (Dropdown) ของแท็บ "ท่าโจมตี & ความสามารถพิเศษ"
+       ======================================== */
+
+    .nav-item {
+        position: relative;
+        display: flex;
+        align-items: stretch;
+    }
+
+    .nav-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        min-width: 230px;
+        padding-top: 6px;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-6px);
+        transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+        z-index: 5;
+    }
+
+    .nav-item:hover .nav-menu,
+    .nav-item:has(:focus-visible) .nav-menu,
+    .nav-item.open .nav-menu {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    /* หลังกดเลือกแล้วให้เมนูหุบ จนกว่าเมาส์จะออกไปแล้วกลับมาใหม่ */
+    .nav-item.suppress .nav-menu {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .nav-menu-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 6px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 204, 77, 0.28);
+        background: linear-gradient(180deg, #14183f, #0d1030);
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
+    }
+
+    .menu-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding: 12px 18px 12px 46px;
+        border-radius: 8px;
+        text-decoration: none;
+        white-space: nowrap;
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--text-dim);
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .menu-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: white;
+    }
+
+    .menu-item:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(255, 204, 77, 0.45);
+    }
+
+    .menu-item.active {
+        color: white;
+        background: linear-gradient(135deg, #3a4fe0, #7a3cf2);
+    }
+
+    .menu-item .pokeball {
+        left: 14px;
+        width: 20px;
+        height: 20px;
+        margin-top: -10px;
+    }
+
+    .menu-item:hover .pokeball,
+    .menu-item:focus-visible .pokeball {
+        animation:
+            ballPop 0.65s cubic-bezier(0.3, 0.85, 0.4, 1) forwards,
+            ballIdle 1s ease-in-out 0.65s infinite;
+    }
+
+    /* หน้าย่อย (ยังเป็นหน้าเปล่า) */
+
+    .subpage {
+        display: none;
+        position: relative;
+        z-index: 1;
+        min-height: calc(100vh - 62px);
+    }
+
+    .subpage.active { display: block; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .menu-item:hover .pokeball,
+        .menu-item:focus-visible .pokeball,
+        .nav-tab:hover .pokeball,
+        .nav-tab:focus-visible .pokeball {
+            animation: none;
+            opacity: 1;
+            transform: none;
+        }
+    }
 </style>
 </head>
 
 <body>
+
+<nav class="topnav" aria-label="เมนูหลัก">
+    <a class="nav-tab active" href="#home" data-page="home"><span class="pokeball"></span>หน้าแรก</a>
+    <a class="nav-tab" href="#pokedex" data-page="pokedex"><span class="pokeball"></span>ข้อมูลโปเกมอน</a>
+    <div class="nav-item" id="movesNavItem">
+        <a class="nav-tab" href="#moves/attacks" data-page="moves"><span class="pokeball"></span>ท่าโจมตี &amp; ความสามารถพิเศษ</a>
+
+        <div class="nav-menu">
+            <div class="nav-menu-panel">
+                <a class="menu-item" href="#moves/attacks" data-sub="attacks"><span class="pokeball"></span>ท่าโจมตี</a>
+                <a class="menu-item" href="#moves/abilities" data-sub="abilities"><span class="pokeball"></span>ความสามารถพิเศษ</a>
+            </div>
+        </div>
+    </div>
+    <a class="nav-tab" href="#profile" data-page="profile"><span class="pokeball"></span>โปรไฟล์</a>
+</nav>
+
+<!-- ========================= -->
+<!-- หน้า 1: หน้าแรก (ของเดิมทั้งหมด) -->
+<!-- ========================= -->
+
+<div id="page-home" class="page active">
 
 <header>
     <h1>Pokémon Team Builder</h1>
@@ -686,13 +1005,6 @@
         <div class="team-header">
             <h2>ทีม Pokémon</h2>
             <div class="team-count"><span id="teamCount">0</span> / 6</div>
-        </div>
-
-        <!-- ปรับแต่งปุ่มการควบคุมทีม (พร้อมผูก class Undo/Redo) -->
-        <div class="team-buttons">
-            <button class="clear-button" onclick="clearTeam()">🗑️ ล้างทีมที่กำลังจัด</button>
-            <button class="undo-button" onclick="undoTeam()">↩️ ย้อนกลับ</button>
-            <button class="redo-button" onclick="redoTeam()">↪️ ทำซ้ำ</button>
         </div>
 
         <div id="teamGrid" class="team-grid">
@@ -768,6 +1080,32 @@
     </div>
 
 </div>
+
+</div>
+<!-- /หน้า 1 -->
+
+<!-- ========================= -->
+<!-- หน้า 2: ข้อมูลโปเกมอน (หน้าเปล่า) -->
+<!-- ========================= -->
+
+<main id="page-pokedex" class="page page-blank"></main>
+
+<!-- ========================= -->
+<!-- หน้า 3: ท่าโจมตี & ความสามารถพิเศษ (หน้าเปล่า + แท็บย่อย) -->
+<!-- ========================= -->
+
+<main id="page-moves" class="page page-blank">
+
+    <div id="sub-attacks" class="subpage active"></div>
+    <div id="sub-abilities" class="subpage"></div>
+
+</main>
+
+<!-- ========================= -->
+<!-- หน้า 4: โปรไฟล์ผู้ใช้ (หน้าเปล่า) -->
+<!-- ========================= -->
+
+<main id="page-profile" class="page page-blank"></main>
 
 <button id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToTop()" aria-label="เลื่อนขึ้นด้านบน">↑</button>
 
@@ -1396,11 +1734,95 @@ window.addEventListener("scroll", () => {
 });
 
 // ========================================
+// สลับหน้า (แถบเมนูด้านบน)
+// ========================================
+
+const PAGE_NAMES = ["home", "pokedex", "moves", "profile"];
+const SUB_PAGE_NAMES = ["attacks", "abilities"];
+
+function showPage(name, sub) {
+    if (!PAGE_NAMES.includes(name)) {
+        name = "home";
+    }
+
+    PAGE_NAMES.forEach(pageName => {
+        document.getElementById("page-" + pageName).classList.toggle("active", pageName === name);
+    });
+
+    document.querySelectorAll(".nav-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.page === name);
+    });
+
+    if (name === "moves") {
+        showSubPage(sub);
+    }
+
+    if (name !== "home") {
+        closeSelectedModal();
+    }
+
+    window.scrollTo({ top: 0 });
+}
+
+// สลับหน้าย่อยในหน้า "ท่าโจมตี & ความสามารถพิเศษ"
+function showSubPage(sub) {
+    if (!SUB_PAGE_NAMES.includes(sub)) {
+        sub = "attacks";
+    }
+
+    SUB_PAGE_NAMES.forEach(subName => {
+        document.getElementById("sub-" + subName).classList.toggle("active", subName === sub);
+    });
+
+    document.querySelectorAll(".menu-item").forEach(item => {
+        item.classList.toggle("active", item.dataset.sub === sub);
+    });
+}
+
+// อ่านหน้าที่ต้องการจาก # ท้ายลิงก์ เช่น #moves/abilities
+function routeFromHash() {
+    const [name, sub] = location.hash.replace("#", "").split("/");
+    showPage(name, sub);
+}
+
+window.addEventListener("hashchange", routeFromHash);
+
+// ----- เมนูย่อยของแท็บ "ท่าโจมตี & ความสามารถพิเศษ" -----
+const movesNavItem = document.getElementById("movesNavItem");
+
+// กดเลือกแล้วให้เมนูหุบ จนกว่าเมาส์จะออกไปแล้วกลับมาใหม่
+movesNavItem.querySelectorAll(".menu-item").forEach(item => {
+    item.addEventListener("click", () => {
+        movesNavItem.classList.add("suppress");
+        movesNavItem.classList.remove("open");
+    });
+});
+
+movesNavItem.addEventListener("mouseleave", () => {
+    movesNavItem.classList.remove("suppress");
+});
+
+// บนจอสัมผัส (ไม่มี hover) แตะครั้งแรกเพื่อเปิดเมนู
+movesNavItem.querySelector(".nav-tab").addEventListener("click", (event) => {
+    if (window.matchMedia("(hover: none)").matches && !movesNavItem.classList.contains("open")) {
+        event.preventDefault();
+        movesNavItem.classList.add("open");
+    }
+});
+
+document.addEventListener("click", (event) => {
+    if (!movesNavItem.contains(event.target)) {
+        movesNavItem.classList.remove("open");
+    }
+});
+
+// ========================================
 // เริ่มต้นการทำงาน
 // ========================================
 
 renderTeamSlots();
 loadDashboard(1);
+routeFromHash();
 
 </script>
 
