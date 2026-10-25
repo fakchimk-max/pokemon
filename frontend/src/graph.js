@@ -1,5 +1,5 @@
 const pageGraph = {
-  home: ['pokedex', 'moves', 'profile'],
+  home: ['pokedex', 'moves', 'item'],
   pokedex: ['home'],
   moves: ['home'],
   item: ['home'],
