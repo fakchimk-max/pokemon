@@ -18,6 +18,8 @@ const GEN_RANGES = {
 };
 
 const typeCache = new Map();
+const pokemonOptionsCache = { value: null };
+const pokemonRecommendationsCache = new Map();
 
 async function getPokemonNamesByType(type) {
     if (typeCache.has(type)) {
@@ -175,6 +177,114 @@ app.get("/moves", async (req, res) => {
     }
 });
 
+app.get("/pokemon-options", async (req, res) => {
+    try {
+        if (!pokemonOptionsCache.value) {
+            const response = await fetch("https://pokeapi.co/api/v2/pokemon?limit=1025", {
+                headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            if (!response.ok) throw new Error(`Fetch Pokémon list failed: ${response.status}`);
+
+            const data = await response.json();
+            pokemonOptionsCache.value = data.results.map(pokemon => {
+                const idMatch = pokemon.url.match(/\/pokemon\/(\d+)\/?$/);
+                return { id: idMatch ? Number(idMatch[1]) : 0, name: pokemon.name };
+            });
+        }
+        res.json({ pokemons: pokemonOptionsCache.value });
+    } catch (error) {
+        console.error("Fetch Pokémon options error:", error);
+        res.status(502).json({ error: "โหลดรายชื่อ Pokémon ไม่สำเร็จ" });
+    }
+});
+
+app.get("/pokemon-recommendations/:name", async (req, res) => {
+    const name = String(req.params.name || "").toLowerCase().trim();
+    if (!/^[a-z0-9-]+$/.test(name)) {
+        return res.status(400).json({ error: "ชื่อ Pokémon ไม่ถูกต้อง" });
+    }
+
+    try {
+        if (pokemonRecommendationsCache.has(name)) {
+            return res.json(pokemonRecommendationsCache.get(name));
+        }
+
+        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(name)}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+        if (response.status === 404) return res.status(404).json({ error: "ไม่พบ Pokémon ที่เลือก" });
+        if (!response.ok) throw new Error(`Fetch Pokémon failed: ${response.status}`);
+
+        const pokemon = await response.json();
+        const types = pokemon.types.map(({ type }) => type.name);
+        const attack = pokemon.stats.find(({ stat }) => stat.name === "attack")?.base_stat || 0;
+        const specialAttack = pokemon.stats.find(({ stat }) => stat.name === "special-attack")?.base_stat || 0;
+        const preference = attack >= specialAttack ? "physical" : "special";
+        const candidates = pokemon.moves
+            .map(({ move, version_group_details }) => {
+                const details = version_group_details || [];
+                const isScarletViolet = details.some(({ version_group }) => version_group.name === "scarlet-violet");
+                const latestDetail = details[details.length - 1];
+                const method = latestDetail?.move_learn_method?.name || "";
+                const methodPriority = method === "level-up" ? 0 : method === "machine" ? 1 : method === "tutor" ? 2 : 3;
+                return { name: move.name, isScarletViolet, methodPriority };
+            })
+            .filter(candidate => candidate.methodPriority < 3)
+            .sort((a, b) => {
+                if (a.isScarletViolet !== b.isScarletViolet) return a.isScarletViolet ? -1 : 1;
+                return a.methodPriority - b.methodPriority;
+            });
+        const candidatePool = candidates.some(candidate => candidate.isScarletViolet)
+            ? candidates.filter(candidate => candidate.isScarletViolet)
+            : candidates;
+        const moveNames = [...new Set(candidatePool.map(candidate => candidate.name))].slice(0, 20);
+
+        const moves = await Promise.all(moveNames.map(async moveName => {
+            const moveResponse = await fetch(`https://pokeapi.co/api/v2/move/${encodeURIComponent(moveName)}`, {
+                headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            if (!moveResponse.ok) return null;
+            const move = await moveResponse.json();
+            const flavorText = move.flavor_text_entries.find(entry => entry.language.name === "en");
+            const power = move.power || 0;
+            const stabBonus = types.includes(move.type.name) ? 1.5 : 1;
+            const classBonus = move.damage_class.name === preference ? 1.15 : 1;
+            return {
+                id: move.id,
+                name: move.name,
+                type: move.type.name,
+                power: move.power || "-",
+                damageClass: move.damage_class.name,
+                description: flavorText ? flavorText.flavor_text.replace(/\f|\n/g, " ") : "",
+                score: power * stabBonus * classBonus
+            };
+        }));
+
+        const result = {
+            pokemon: {
+                id: pokemon.id,
+                name: pokemon.name,
+                image: pokemon.sprites.versions?.["generation-v"]?.["black-white"]?.animated?.front_default
+                    || pokemon.sprites.front_default
+                    || pokemon.sprites.other?.["official-artwork"]?.front_default
+                    || "",
+                types
+            },
+            moves: moves
+                .filter(move => move !== null)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 6)
+                .map(({ score, ...move }) => move)
+        };
+
+        pokemonRecommendationsCache.set(name, result);
+        res.json(result);
+    } catch (error) {
+        console.error(`Fetch recommended moves for ${name} error:`, error);
+        res.status(502).json({ error: "โหลดท่าแนะนำไม่สำเร็จ" });
+    }
+});
+
 app.get("/abilities", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
@@ -236,12 +346,15 @@ app.get("/items", async (req, res) => {
                 // ค้นหาคำอธิบายภาษาอังกฤษ
                 const effectText = detail.effect_entries.find(e => e.language.name === "en");
                 const flavorText = detail.flavor_text_entries.find(e => e.language.name === "en");
+                const latestPrice = [...(detail.prices || [])]
+                    .reverse()
+                    .find(price => price.currency?.name === "poke-dollar" && price.purchase_price > 0);
 
                 return {
                     id: detail.id,
                     name: detail.name,
                     category: detail.category?.name || "general",
-                    cost: detail.cost || 0,
+                    cost: latestPrice ? latestPrice.purchase_price : null,
                     image: detail.sprites?.default || "", // รูปภาพ Pixel Art ของไอเทม
                     description: effectText ? effectText.short_effect.replace(/\f|\n/g, " ") 
                                : (flavorText ? flavorText.flavor_text.replace(/\f|\n/g, " ") : "ไม่มีคำอธิบาย")
