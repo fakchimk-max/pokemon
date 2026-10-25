@@ -10,7 +10,6 @@ app.use(express.json());
 // ========================================
 const typeCache = new Map();
 
-// ฟังก์ชันดึงรายชื่อ Pokémon ตามธาตุ จาก PokéAPI
 async function getPokemonNamesByType(type) {
     if (typeCache.has(type)) {
         return typeCache.get(type);
@@ -31,9 +30,8 @@ async function getPokemonNamesByType(type) {
 // Routes การดึงหน้าเว็บและข้อมูล Pokémon
 // ========================================
 
-// ส่งหน้า index.html เมื่อเปิดเข้ามาที่หน้าแรก
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "..", "index.html"));
+    res.send("Pokémon API Server is running!");
 });
 
 // API สำหรับดึง ค้นหา กรอง และเรียงลำดับ Pokémon
@@ -46,38 +44,31 @@ app.get("/pokemons", async (req, res) => {
         const stat = String(req.query.stat || "id");
         const order = String(req.query.order || "asc");
 
-        // 1. ดึงข้อมูล 1,025 ตัวหลัก
         const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025`, {
             headers: { "User-Agent": "Mozilla/5.0" }
         });
         if (!resAll.ok) throw new Error(`API Error: ${resAll.status}`);
         const dataAll = await resAll.json();
 
-        // 2. กรองเอาเฉพาะ ID 1 - 1025 
         let mainList = dataAll.results.filter(p => {
             const idMatch = p.url.match(/\/pokemon\/(\d+)\//);
             const id = idMatch ? parseInt(idMatch[1], 10) : 0;
             return id >= 1 && id <= 1025;
         });
 
-        // 3. กรองตามการค้นหาชื่อ
         if (search) {
             mainList = mainList.filter(p => p.name.toLowerCase().includes(search));
         }
 
-        // 4. กรองตามธาตุ
         if (type !== "all") {
             const typeNames = await getPokemonNamesByType(type);
             mainList = mainList.filter(p => typeNames.has(p.name));
         }
 
         const totalCount = mainList.length;
-
-        // 5. ตัดแบ่งหน้า (Pagination)
         const start = (page - 1) * limit;
         const targetList = mainList.slice(start, start + limit);
 
-        // 6. ดึงรายละเอียดเฉพาะตัวในหน้านั้น
         const pagePokemons = await Promise.all(
             targetList.map(async (pokemon) => {
                 const resDetail = await fetch(pokemon.url, {
@@ -101,7 +92,6 @@ app.get("/pokemons", async (req, res) => {
             })
         );
 
-        // ใช้ Insertion Sort เรียงข้อมูลก่อนส่งกลับ
         const sortedPokemons = insertionSort(
             pagePokemons.filter(p => p !== null),
             stat,
@@ -119,6 +109,95 @@ app.get("/pokemons", async (req, res) => {
     } catch (error) {
         console.error("Fetch Error:", error);
         res.status(502).json({ error: "โหลดข้อมูลไม่สำเร็จ" });
+    }
+});
+
+// ========================================
+// API ดึงข้อมูล ท่าโจมตี (Moves)
+// ========================================
+app.get("/moves", async (req, res) => {
+    try {
+        const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+        const limit = 20;
+        const offset = (page - 1) * limit;
+
+        const response = await fetch(`https://pokeapi.co/api/v2/move?limit=${limit}&offset=${offset}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+        if (!response.ok) throw new Error("Fetch moves failed");
+        const data = await response.json();
+
+        const moves = await Promise.all(
+            data.results.map(async (item) => {
+                const resDetail = await fetch(item.url, { headers: { "User-Agent": "Mozilla/5.0" } });
+                if (!resDetail.ok) return null;
+                const detail = await resDetail.json();
+
+                const flavorText = detail.flavor_text_entries.find(e => e.language.name === "en");
+
+                return {
+                    id: detail.id,
+                    name: detail.name,
+                    type: detail.type.name,
+                    power: detail.power || "-",
+                    pp: detail.pp || "-",
+                    accuracy: detail.accuracy || "-",
+                    damageClass: detail.damage_class.name,
+                    description: flavorText ? flavorText.flavor_text.replace(/\f|\n/g, " ") : ""
+                };
+            })
+        );
+
+        res.json({
+            moves: moves.filter(m => m !== null),
+            page,
+            totalPages: Math.ceil(data.count / limit)
+        });
+    } catch (error) {
+        console.error("Moves Fetch Error:", error);
+        res.status(502).json({ error: "โหลดข้อมูลท่าโจมตีไม่สำเร็จ" });
+    }
+});
+
+// ========================================
+// API ดึงข้อมูล ความสามารถพิเศษ (Abilities)
+// ========================================
+app.get("/abilities", async (req, res) => {
+    try {
+        const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+        const limit = 20;
+        const offset = (page - 1) * limit;
+
+        const response = await fetch(`https://pokeapi.co/api/v2/ability?limit=${limit}&offset=${offset}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+        if (!response.ok) throw new Error("Fetch abilities failed");
+        const data = await response.json();
+
+        const abilities = await Promise.all(
+            data.results.map(async (item) => {
+                const resDetail = await fetch(item.url, { headers: { "User-Agent": "Mozilla/5.0" } });
+                if (!resDetail.ok) return null;
+                const detail = await resDetail.json();
+
+                const effectText = detail.effect_entries.find(e => e.language.name === "en");
+
+                return {
+                    id: detail.id,
+                    name: detail.name,
+                    description: effectText ? effectText.short_effect.replace(/\f|\n/g, " ") : "ไม่มีคำอธิบาย"
+                };
+            })
+        );
+
+        res.json({
+            abilities: abilities.filter(a => a !== null),
+            page,
+            totalPages: Math.ceil(data.count / limit)
+        });
+    } catch (error) {
+        console.error("Abilities Fetch Error:", error);
+        res.status(502).json({ error: "โหลดข้อมูลความสามารถไม่สำเร็จ" });
     }
 });
 
@@ -152,7 +231,6 @@ function insertionSort(array, field = "id", order = "asc") {
 // Data Structure: Stack & History System
 // ========================================
 
-// คลาส Stack พื้นฐาน
 class Stack {
     constructor() {
         this.items = [];
@@ -183,21 +261,16 @@ class Stack {
     }
 }
 
-// Stack สำหรับจัดการทีมและระบบ Undo / Redo
-const teamStack = new Stack(); // สแต็กเก็บทีมปัจจุบัน
-const undoStack = new Stack(); // สแต็กเก็บประวัติทีมสำหรับ Undo
-const redoStack = new Stack(); // สแต็กเก็บประวัติทีมสำหรับ Redo
+const teamStack = new Stack();
+const undoStack = new Stack();
+const redoStack = new Stack();
 
-// ฟังก์ชันบันทึกประวัติทีมก่อนเกิดการเปลี่ยนแปลง
 function saveHistory() {
-    // ทำการ Deep Copy ข้อมูลในทีมเพื่อป้องกันการส่งต่อ Reference
     const snapshot = JSON.parse(JSON.stringify(teamStack.getAll()));
     undoStack.push(snapshot);
-    // ล้าง Redo Stack ทุกครั้งที่มีแอคชันใหม่เกิดขึ้น
     redoStack.clear();
 }
 
-// ฟังก์ชันแทนที่ข้อมูลในทีมปัจจุบัน
 function setTeam(newTeam) {
     teamStack.clear();
     newTeam.forEach(pokemon => teamStack.push(pokemon));
@@ -207,13 +280,12 @@ function setTeam(newTeam) {
 // Endpoints: จัดการทีม Pokémon (Team API)
 // ========================================
 
-// เพิ่ม Pokémon เข้าทีม
 app.post("/team/push", (req, res) => {
     if (teamStack.getAll().length >= 6) {
         return res.status(400).json({ error: "ทีมเต็มแล้ว" });
     }
 
-    saveHistory(); // บันทึกประวัติก่อนเพิ่ม
+    saveHistory();
     teamStack.push(req.body);
 
     res.json({
@@ -222,14 +294,13 @@ app.post("/team/push", (req, res) => {
     });
 });
 
-// ลบ Pokémon ออกจากทีม
 app.post("/team/remove", (req, res) => {
     const id = Number(req.body.id);
     const currentTeam = teamStack.getAll();
     const index = currentTeam.findIndex(p => Number(p.id) === id);
 
     if (index !== -1) {
-        saveHistory(); // บันทึกประวัติก่อนลบ
+        saveHistory();
         currentTeam.splice(index, 1);
         setTeam(currentTeam);
     }
@@ -240,10 +311,9 @@ app.post("/team/remove", (req, res) => {
     });
 });
 
-// ล้าง Pokémon ทั้งหมดในทีม
 app.post("/team/clear", (req, res) => {
     if (!teamStack.isEmpty()) {
-        saveHistory(); // บันทึกประวัติก่อนล้างทีม
+        saveHistory();
         teamStack.clear();
     }
 
@@ -253,9 +323,8 @@ app.post("/team/clear", (req, res) => {
     });
 });
 
-// โหลด/ตั้งค่าทีมใหม่ (เช่น ดึงมาจาก Save Slot)
 app.post("/team/set", (req, res) => {
-    saveHistory(); // บันทึกประวัติก่อนเปลี่ยนทีม
+    saveHistory();
     const newTeam = Array.isArray(req.body.team) ? req.body.team.slice(0, 6) : [];
     setTeam(newTeam);
 
@@ -265,11 +334,6 @@ app.post("/team/set", (req, res) => {
     });
 });
 
-// ========================================
-// Endpoints: ระบบ Undo / Redo
-// ========================================
-
-// ย้อนกลับทีม (Undo)
 app.post("/team/undo", (req, res) => {
     if (undoStack.isEmpty()) {
         return res.json({
@@ -279,11 +343,9 @@ app.post("/team/undo", (req, res) => {
         });
     }
 
-    // เก็บทีมปัจจุบันลง Redo Stack ก่อนย้อนกลับ
     const currentSnapshot = JSON.parse(JSON.stringify(teamStack.getAll()));
     redoStack.push(currentSnapshot);
 
-    // ดึงสถานะทีมก่อนหน้าจาก Undo Stack
     const previousTeam = undoStack.pop();
     setTeam(previousTeam);
 
@@ -293,7 +355,6 @@ app.post("/team/undo", (req, res) => {
     });
 });
 
-// ทำซ้ำทีม (Redo)
 app.post("/team/redo", (req, res) => {
     if (redoStack.isEmpty()) {
         return res.json({
@@ -303,11 +364,9 @@ app.post("/team/redo", (req, res) => {
         });
     }
 
-    // เก็บทีมปัจจุบันลง Undo Stack ก่อนทำซ้ำ
     const currentSnapshot = JSON.parse(JSON.stringify(teamStack.getAll()));
     undoStack.push(currentSnapshot);
 
-    // ดึงสถานะทีมถัดไปจาก Redo Stack
     const nextTeam = redoStack.pop();
     setTeam(nextTeam);
 
@@ -317,9 +376,6 @@ app.post("/team/redo", (req, res) => {
     });
 });
 
-// ========================================
-// Start Server
-// ========================================
 app.listen(PORT, () => {
     console.log(`เซิร์ฟเวอร์พร้อมใช้งานที่ http://localhost:${PORT}`);
 });
