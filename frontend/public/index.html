@@ -922,7 +922,7 @@
 </nav>
 
 <!-- ========================= -->
-<!-- หน้า 1: หน้าแรก -->
+<!-- หน้า 1: หน้าแรก (จัดทีม) -->
 <!-- ========================= -->
 
 <div id="page-home" class="page active">
@@ -1114,10 +1114,18 @@
 </main>
 
 <!-- ========================= -->
-<!-- หน้า 4: โปรไฟล์ผู้ใช้ -->
+<!-- หน้า 4: โปรไฟล์ผู้ใช้ (รายการไอเทม) -->
 <!-- ========================= -->
 
-<main id="page-profile" class="page page-blank"></main>
+<main id="page-profile" class="page page-blank">
+    <div class="container" style="padding-top: 20px;">
+        <div class="panel">
+            <h2>รายการไอเทม (Items)</h2>
+            <div id="itemsGrid" class="pokemon-grid"></div>
+            <div id="itemsPagination" class="pagination"></div>
+        </div>
+    </div>
+</main>
 
 <button id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToTop()" aria-label="เลื่อนขึ้นด้านบน">↑</button>
 
@@ -1913,6 +1921,75 @@ function renderAbilitiesPagination(totalPages) {
     container.innerHTML = html;
 }
 
+// ========================================
+// ฟังก์ชันสำหรับโหลดและแสดงไอเทม (Items)
+// ========================================
+let currentItemPage = 1;
+
+async function loadItems(page = 1) {
+    const grid = document.getElementById("itemsGrid");
+    const pagination = document.getElementById("itemsPagination");
+    if (!grid) return;
+
+    grid.innerHTML = `<div class="empty">กำลังโหลดข้อมูลไอเทม...</div>`;
+    if (pagination) pagination.innerHTML = "";
+
+    try {
+        const response = await fetch(`/items?page=${page}`);
+        if (!response.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ");
+
+        const data = await response.json();
+        currentItemPage = data.page || page;
+
+        grid.innerHTML = "";
+
+        if (!data.items || data.items.length === 0) {
+            grid.innerHTML = `<div class="empty">ไม่พบข้อมูลไอเทม</div>`;
+            return;
+        }
+
+        data.items.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "pokemon-card";
+            card.style.padding = "16px";
+            card.style.cursor = "default";
+
+            card.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    ${item.image ? `<img src="${item.image}" alt="${item.name}" style="width: 32px; height: 32px; object-fit: contain;">` : ''}
+                    <h3 style="margin: 0; text-transform: capitalize; color: white;">${item.name}</h3>
+                </div>
+                <div style="font-size: 12px; color: var(--gold); margin-bottom: 8px;">
+                    <span>หมวดหมู่: <strong style="text-transform: capitalize;">${item.category}</strong></span> | 
+                    <span>ราคา: <strong>${item.cost} ₽</strong></span>
+                </div>
+                <p style="font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.4;">
+                    ${item.description}
+                </p>
+            `;
+            grid.appendChild(card);
+        });
+
+        renderItemsPagination(data.totalPages);
+
+    } catch (error) {
+        console.error(error);
+        grid.innerHTML = `<div class="empty">โหลดข้อมูลไอเทมไม่สำเร็จ</div>`;
+    }
+}
+
+function renderItemsPagination(totalPages) {
+    const container = document.getElementById("itemsPagination");
+    if (!container || totalPages <= 1) return;
+
+    let html = `
+        <button onclick="loadItems(${currentItemPage - 1})" ${currentItemPage === 1 ? "disabled" : ""}>←</button>
+        <span class="page-info">หน้า ${currentItemPage} / ${totalPages}</span>
+        <button onclick="loadItems(${currentItemPage + 1})" ${currentItemPage === totalPages ? "disabled" : ""}>→</button>
+    `;
+    container.innerHTML = html;
+}
+
 function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1946,6 +2023,8 @@ function showPage(name, sub) {
         loadPokedex(1);
     } else if (name === "moves") {
         showSubPage(sub);
+    } else if (name === "profile") {
+        loadItems(1);
     }
 
     if (name !== "home") {
