@@ -1034,23 +1034,8 @@
 
 <main id="page-moves" class="page page-blank">
     <div class="container" style="padding-top: 20px;">
-        
-        <div id="sub-attacks" class="subpage active">
-            <div class="panel">
-                <h2>รายการท่าโจมตี (Moves)</h2>
-                <div id="movesGrid" class="pokemon-grid"></div>
-                <div id="movesPagination" class="pagination"></div>
-            </div>
-        </div>
-
-        <div id="sub-abilities" class="subpage">
-            <div class="panel">
-                <h2>รายการความสามารถพิเศษ (Abilities)</h2>
-                <div id="abilitiesGrid" class="pokemon-grid"></div>
-                <div id="abilitiesPagination" class="pagination"></div>
-            </div>
-        </div>
-
+        <div id="sub-attacks" class="subpage active"></div>
+        <div id="sub-abilities" class="subpage"></div>
     </div>
 </main>
 
@@ -1602,140 +1587,6 @@ async function redoTeam() {
     }
 }
 
-// ========================================
-// ดึงข้อมูลและแสดงผลรายการ ท่าโจมตี (Moves)
-// ========================================
-let currentMovePage = 1;
-
-async function loadAttacks(page = 1) {
-    const grid = document.getElementById("movesGrid");
-    const pagination = document.getElementById("movesPagination");
-    if (!grid) return;
-
-    grid.innerHTML = `<div class="empty">กำลังโหลดข้อมูลท่าโจมตี...</div>`;
-    pagination.innerHTML = "";
-
-    try {
-        const response = await fetch(`/moves?page=${page}`);
-        if (!response.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ");
-
-        const data = await response.json();
-        currentMovePage = data.page || page;
-
-        grid.innerHTML = "";
-
-        if (!data.moves || data.moves.length === 0) {
-            grid.innerHTML = `<div class="empty">ไม่พบข้อมูลท่าโจมตี</div>`;
-            return;
-        }
-
-        data.moves.forEach(move => {
-            const card = document.createElement("div");
-            card.className = "pokemon-card";
-            card.style.padding = "16px";
-            card.style.cursor = "default";
-
-            const gradient = gradientForTypes([move.type]);
-
-            card.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h3 style="margin: 0; text-transform: capitalize; color: white;">${move.name}</h3>
-                    <span class="pokemon-type" style="background: ${gradient}; margin: 0;">${move.type}</span>
-                </div>
-                <div style="font-size: 12px; color: var(--gold); margin-bottom: 8px;">
-                    <span>Power: <strong>${move.power}</strong></span> | 
-                    <span>PP: <strong>${move.pp}</strong></span> | 
-                    <span>Acc: <strong>${move.accuracy}</strong></span>
-                </div>
-                <p style="font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.4;">
-                    ${move.description || "ไม่มีคำอธิบาย"}
-                </p>
-            `;
-            grid.appendChild(card);
-        });
-
-        renderMovesPagination(data.totalPages);
-
-    } catch (error) {
-        console.error(error);
-        grid.innerHTML = `<div class="empty">โหลดข้อมูลท่าโจมตีไม่สำเร็จ</div>`;
-    }
-}
-
-function renderMovesPagination(totalPages) {
-    const container = document.getElementById("movesPagination");
-    if (!container || totalPages <= 1) return;
-
-    let html = `
-        <button onclick="loadAttacks(${currentMovePage - 1})" ${currentMovePage === 1 ? "disabled" : ""}>←</button>
-        <span class="page-info">หน้า ${currentMovePage} / ${totalPages}</span>
-        <button onclick="loadAttacks(${currentMovePage + 1})" ${currentMovePage === totalPages ? "disabled" : ""}>→</button>
-    `;
-    container.innerHTML = html;
-}
-
-// ========================================
-// ดึงข้อมูลและแสดงผล ความสามารถพิเศษ (Abilities)
-// ========================================
-let currentAbilityPage = 1;
-
-async function loadAbilities(page = 1) {
-    const grid = document.getElementById("abilitiesGrid");
-    const pagination = document.getElementById("abilitiesPagination");
-    if (!grid) return;
-
-    grid.innerHTML = `<div class="empty">กำลังโหลดข้อมูลความสามารถพิเศษ...</div>`;
-    pagination.innerHTML = "";
-
-    try {
-        const response = await fetch(`/abilities?page=${page}`);
-        if (!response.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ");
-
-        const data = await response.json();
-        currentAbilityPage = data.page || page;
-
-        grid.innerHTML = "";
-
-        if (!data.abilities || data.abilities.length === 0) {
-            grid.innerHTML = `<div class="empty">ไม่พบข้อมูลความสามารถพิเศษ</div>`;
-            return;
-        }
-
-        data.abilities.forEach(ability => {
-            const card = document.createElement("div");
-            card.className = "pokemon-card";
-            card.style.padding = "16px";
-            card.style.cursor = "default";
-
-            card.innerHTML = `
-                <h3 style="margin: 0 0 8px; text-transform: capitalize; color: white;">${ability.name}</h3>
-                <p style="font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.4;">
-                    ${ability.description}
-                </p>
-            `;
-            grid.appendChild(card);
-        });
-
-        renderAbilitiesPagination(data.totalPages);
-
-    } catch (error) {
-        console.error(error);
-        grid.innerHTML = `<div class="empty">โหลดข้อมูลความสามารถพิเศษไม่สำเร็จ</div>`;
-    }
-}
-
-function renderAbilitiesPagination(totalPages) {
-    const container = document.getElementById("abilitiesPagination");
-    if (!container || totalPages <= 1) return;
-
-    let html = `
-        <button onclick="loadAbilities(${currentAbilityPage - 1})" ${currentAbilityPage === 1 ? "disabled" : ""}>←</button>
-        <span class="page-info">หน้า ${currentAbilityPage} / ${totalPages}</span>
-        <button onclick="loadAbilities(${currentAbilityPage + 1})" ${currentAbilityPage === totalPages ? "disabled" : ""}>→</button>
-    `;
-    container.innerHTML = html;
-}
-
 function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1789,11 +1640,6 @@ function showSubPage(sub) {
         item.classList.toggle("active", item.dataset.sub === sub);
     });
 
-    if (sub === "attacks") {
-        loadAttacks(1);
-    } else if (sub === "abilities") {
-        loadAbilities(1);
-    }
 }
 
 function routeFromHash() {
