@@ -33,7 +33,7 @@ async function getPokemonNamesByType(type) {
 
 // ส่งหน้า index.html เมื่อเปิดเข้ามาที่หน้าแรก
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
+    res.sendFile(path.join(__dirname, "..", "index.html"));
 });
 
 // API สำหรับดึง ค้นหา กรอง และเรียงลำดับ Pokémon
