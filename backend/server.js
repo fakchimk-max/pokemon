@@ -21,6 +21,53 @@ const typeCache = new Map();
 const pokemonOptionsCache = { value: null };
 const pokemonRecommendationsCache = new Map();
 const itemListCache = { value: null };
+const pokemonSearchIndexCache = { value: null, promise: null };
+
+async function getPokemonSearchIndex() {
+    if (pokemonSearchIndexCache.value) {
+        return pokemonSearchIndexCache.value;
+    }
+
+    if (!pokemonSearchIndexCache.promise) {
+        pokemonSearchIndexCache.promise = (async () => {
+            const response = await fetch("https://pokeapi.co/api/v2/pokemon?limit=1025", {
+                headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            const data = await response.json();
+            const pokemons = data.results.map(pokemon => {
+                const idMatch = pokemon.url.match(/\/pokemon\/(\d+)\//);
+                return { ...pokemon, id: idMatch ? parseInt(idMatch[1], 10) : 0 };
+            }).filter(pokemon => pokemon.id >= 1 && pokemon.id <= 1025);
+            const bySubstring = new Map();
+
+            for (const pokemon of pokemons) {
+                const substrings = new Set();
+                for (let start = 0; start < pokemon.name.length; start++) {
+                    for (let end = start + 1; end <= pokemon.name.length; end++) {
+                        substrings.add(pokemon.name.slice(start, end));
+                    }
+                }
+                for (const substring of substrings) {
+                    const matches = bySubstring.get(substring);
+                    if (matches) {
+                        matches.push(pokemon);
+                    } else {
+                        bySubstring.set(substring, [pokemon]);
+                    }
+                }
+            }
+
+            pokemonSearchIndexCache.value = { pokemons, bySubstring };
+            return pokemonSearchIndexCache.value;
+        })().catch(error => {
+            pokemonSearchIndexCache.promise = null;
+            throw error;
+        });
+    }
+
+    return pokemonSearchIndexCache.promise;
+}
 
 async function getPokemonNamesByType(type) {
     if (typeCache.has(type)) {
@@ -52,21 +99,8 @@ app.get("/pokemons", async (req, res) => {
         const stat = String(req.query.stat || "id");
         const order = String(req.query.order || "asc");
 
-        const resAll = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025`, {
-            headers: { "User-Agent": "Mozilla/5.0" }
-        });
-        if (!resAll.ok) throw new Error(`API Error: ${resAll.status}`);
-        const dataAll = await resAll.json();
-
-        let mainList = dataAll.results.map(p => {
-            const idMatch = p.url.match(/\/pokemon\/(\d+)\//);
-            const id = idMatch ? parseInt(idMatch[1], 10) : 0;
-            return { ...p, id };
-        }).filter(p => p.id >= 1 && p.id <= 1025);
-
-        if (search) {
-            mainList = mainList.filter(p => p.name.toLowerCase().includes(search));
-        }
+        const { pokemons, bySubstring } = await getPokemonSearchIndex();
+        let mainList = search ? bySubstring.get(search) || [] : pokemons;
 
         if (gen !== "all" && GEN_RANGES[gen]) {
             const [minId, maxId] = GEN_RANGES[gen];
@@ -396,58 +430,31 @@ function insertionSort(array, field = "id", order = "asc") {
     return arr;
 }
 
-class Stack {
-    constructor() { this.items = []; }
-    push(item) { this.items.push(item); }
-    pop() { return this.items.pop(); }
-    peek() { return this.items[this.items.length - 1]; }
-    isEmpty() { return this.items.length === 0; }
-    clear() { this.items = []; }
-    getAll() { return [...this.items]; }
-}
-
-const teamStack = new Stack();
-const undoStack = new Stack();
-const redoStack = new Stack();
-
-function saveHistory() {
-    undoStack.push(JSON.parse(JSON.stringify(teamStack.getAll())));
-    redoStack.clear();
-}
-
-function setTeam(newTeam) {
-    teamStack.clear();
-    newTeam.forEach(pokemon => teamStack.push(pokemon));
-}
+let team = [];
 
 app.post("/team/push", (req, res) => {
-    if (teamStack.getAll().length >= 6) return res.status(400).json({ error: "ทีมเต็มแล้ว" });
-    saveHistory();
-    teamStack.push(req.body);
-    res.json({ success: true, team: teamStack.getAll() });
+    if (team.length >= 6) return res.status(400).json({ error: "ทีมเต็มแล้ว" });
+    team.push(req.body);
+    res.json({ success: true, team: [...team] });
 });
 
 app.post("/team/remove", (req, res) => {
     const id = Number(req.body.id);
-    const currentTeam = teamStack.getAll();
-    const index = currentTeam.findIndex(p => Number(p.id) === id);
+    const index = team.findIndex(pokemon => Number(pokemon.id) === id);
     if (index !== -1) {
-        saveHistory();
-        currentTeam.splice(index, 1);
-        setTeam(currentTeam);
+        team.splice(index, 1);
     }
-    res.json({ success: true, team: teamStack.getAll() });
+    res.json({ success: true, team: [...team] });
 });
 
 app.post("/team/clear", (req, res) => {
-    if (!teamStack.isEmpty()) { saveHistory(); teamStack.clear(); }
-    res.json({ success: true, team: teamStack.getAll() });
+    team = [];
+    res.json({ success: true, team: [...team] });
 });
 
 app.post("/team/set", (req, res) => {
-    saveHistory();
-    setTeam(Array.isArray(req.body.team) ? req.body.team.slice(0, 6) : []);
-    res.json({ success: true, team: teamStack.getAll() });
+    team = Array.isArray(req.body.team) ? req.body.team.slice(0, 6) : [];
+    res.json({ success: true, team: [...team] });
 });
 
 app.get('/pokedex-detail', async (req, res) => {
