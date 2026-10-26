@@ -20,6 +20,7 @@ const GEN_RANGES = {
 const typeCache = new Map();
 const pokemonOptionsCache = { value: null };
 const pokemonRecommendationsCache = new Map();
+const itemListCache = { value: null };
 
 async function getPokemonNamesByType(type) {
     if (typeCache.has(type)) {
@@ -329,16 +330,23 @@ app.get("/items", async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
         const limit = 20;
-        const offset = (page - 1) * limit;
+        const search = String(req.query.search || "").toLowerCase().trim();
 
-        const response = await fetch(`https://pokeapi.co/api/v2/item?limit=${limit}&offset=${offset}`, {
-            headers: { "User-Agent": "Mozilla/5.0" }
-        });
-        if (!response.ok) throw new Error("Fetch items failed");
-        const data = await response.json();
+        if (!itemListCache.value) {
+            const response = await fetch("https://pokeapi.co/api/v2/item?limit=10000&offset=0", {
+                headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            if (!response.ok) throw new Error("Fetch items failed");
+            const data = await response.json();
+            itemListCache.value = data.results;
+        }
+
+        const matchingItems = itemListCache.value.filter(item => item.name.includes(search));
+        const totalCount = matchingItems.length;
+        const pageItems = matchingItems.slice((page - 1) * limit, page * limit);
 
         const items = await Promise.all(
-            data.results.map(async (item) => {
+            pageItems.map(async (item) => {
                 const resDetail = await fetch(item.url, { headers: { "User-Agent": "Mozilla/5.0" } });
                 if (!resDetail.ok) return null;
                 const detail = await resDetail.json();
@@ -346,15 +354,11 @@ app.get("/items", async (req, res) => {
                 // ค้นหาคำอธิบายภาษาอังกฤษ
                 const effectText = detail.effect_entries.find(e => e.language.name === "en");
                 const flavorText = detail.flavor_text_entries.find(e => e.language.name === "en");
-                const latestPrice = [...(detail.prices || [])]
-                    .reverse()
-                    .find(price => price.currency?.name === "poke-dollar" && price.purchase_price > 0);
 
                 return {
                     id: detail.id,
                     name: detail.name,
                     category: detail.category?.name || "general",
-                    cost: latestPrice ? latestPrice.purchase_price : null,
                     image: detail.sprites?.default || "", // รูปภาพ Pixel Art ของไอเทม
                     description: effectText ? effectText.short_effect.replace(/\f|\n/g, " ") 
                                : (flavorText ? flavorText.flavor_text.replace(/\f|\n/g, " ") : "ไม่มีคำอธิบาย")
@@ -365,7 +369,7 @@ app.get("/items", async (req, res) => {
         res.json({
             items: items.filter(i => i !== null),
             page,
-            totalPages: Math.ceil(data.count / limit)
+            totalPages: Math.ceil(totalCount / limit)
         });
     } catch (error) {
         console.error("Fetch Items Error:", error);
