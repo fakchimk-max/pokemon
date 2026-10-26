@@ -4,15 +4,14 @@ import Home from './pages/Home'
 import Pokedex from './pages/Pokedex'
 import Moves from './pages/Moves'
 import Item from './pages/Item'
-import Course from './pages/Course'
+import pageGraph, { pageLabels } from './graph'
 
 function readLocation() {
   const route = window.location.hash.replace(/^#/, '') || window.location.pathname.replace(/^\/+/, '')
   const [page, sub] = route.split('/')
-  if (page === 'course') return { page: 'course', sub: '' }
   if (page === 'pokedex') return { page: 'pokedex', sub: '' }
   if (page === 'moves') return { page: 'moves', sub: sub === 'abilities' ? sub : 'attacks' }
-  if (page === 'profile' || page === 'item') return { page: 'profile', sub: '' }
+  if (page === 'profile' || page === 'item') return { page: 'item', sub: '' }
   return { page: 'home', sub: '' }
 }
 
@@ -59,6 +58,9 @@ export default function App() {
     }
   }
 
+  const mainPages = ['home', ...pageGraph.home]
+  const moveSubPages = pageGraph.moves.filter(page => page !== 'home')
+
   return (
     <>
       <div className="brand-bar">
@@ -70,31 +72,35 @@ export default function App() {
       <nav className="topnav" aria-label="เมนูหลัก" onClick={event => {
         if (!event.target.closest('.nav-item')) setMovesMenuOpen(false)
       }}>
-        <a className={`nav-tab${route.page === 'home' ? ' active' : ''}`} href="#home"><span className="pokeball" />จัดทีม</a>
-        <a className={`nav-tab${route.page === 'pokedex' ? ' active' : ''}`} href="#pokedex"><span className="pokeball" />ข้อมูลโปเกมอน</a>
-        <div id="movesNavItem" className={`nav-item${movesMenuOpen ? ' open' : ''}`} onMouseLeave={() => setMovesMenuOpen(false)}>
-          <a className={`nav-tab${route.page === 'moves' ? ' active' : ''}`} href="#moves/attacks" onClick={handleMovesNav}>
-            <span className="pokeball" />ท่าโจมตี &amp; ความสามารถพิเศษ
-          </a>
-          <div className="nav-menu">
-            <div className="nav-menu-panel">
-              <a className={`menu-item${route.page === 'moves' && route.sub === 'attacks' ? ' active' : ''}`} href="#moves/attacks" onClick={() => setMovesMenuOpen(false)}>
-                <span className="pokeball" />ท่าโจมตี
-              </a>
-              <a className={`menu-item${route.page === 'moves' && route.sub === 'abilities' ? ' active' : ''}`} href="#moves/abilities" onClick={() => setMovesMenuOpen(false)}>
-                <span className="pokeball" />ความสามารถพิเศษ
-              </a>
+        {mainPages.map(page => page === 'moves' ? (
+          <div key={page} id="movesNavItem" className={`nav-item${movesMenuOpen ? ' open' : ''}`} onMouseLeave={() => setMovesMenuOpen(false)}>
+            <a className={`nav-tab${route.page === page ? ' active' : ''}`} href="#moves/attacks" onClick={handleMovesNav}>
+              <span className="pokeball" />{pageLabels[page]}
+            </a>
+            <div className="nav-menu">
+              <div className="nav-menu-panel">
+                {moveSubPages.map(subPage => {
+                  const sub = subPage.split('/')[1]
+                  return (
+                    <a key={subPage} className={`menu-item${route.page === 'moves' && route.sub === sub ? ' active' : ''}`} href={`#${subPage}`} onClick={() => setMovesMenuOpen(false)}>
+                      <span className="pokeball" />{pageLabels[subPage]}
+                    </a>
+                  )
+                })}
+              </div>
             </div>
           </div>
-        </div>
-        <a className={`nav-tab${route.page === 'profile' ? ' active' : ''}`} href="#profile"><span className="pokeball" />ไอเทม</a>
+        ) : (
+          <a key={page} className={`nav-tab${route.page === page ? ' active' : ''}`} href={`#${page}`}>
+            <span className="pokeball" />{pageLabels[page]}
+          </a>
+        ))}
       </nav>
 
       <Home active={route.page === 'home'} />
       <Pokedex active={route.page === 'pokedex'} />
       <Moves active={route.page === 'moves'} sub={route.sub} />
-      <Item active={route.page === 'profile'} />
-      {route.page === 'course' && <Course />}
+      <Item active={route.page === 'item'} />
 
       <button className={`scroll-top-btn${showScrollTop ? ' show' : ''}`} type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="เลื่อนขึ้นด้านบน">↑</button>

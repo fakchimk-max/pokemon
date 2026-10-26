@@ -39,7 +39,7 @@ export default function Item({ active }) {
   }, [active, page, search])
 
   return (
-    <main id="page-profile" className={`page page-blank${active ? ' active' : ''}`}>
+    <main id="page-item" className={`page page-blank${active ? ' active' : ''}`}>
       <div className="container" style={{ paddingTop: 20 }}>
         <section className="panel">
           <h2>รายการไอเทม (Items)</h2>

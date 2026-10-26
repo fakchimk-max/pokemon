@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { fetchJson } from '../api'
 import { LoadMessage, PageControls, PokemonCard } from '../components/shared'
 
 const typeOptions = [
@@ -49,32 +50,33 @@ export default function Pokedex({ active }) {
       setLoading(true)
       setError('')
       try {
-        const offset = (page - 1) * 20
-        const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=20&offset=${offset}`, { signal: controller.signal })
-        if (!response.ok) throw new Error(`PokéAPI returned ${response.status}`)
-        const data = await response.json()
-        setTotalPages(Math.ceil((data.count || 151) / 20))
-        const details = await Promise.all(data.results.map(async pokemon => {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: '25',
+          search: search.trim(),
+          type,
+          gen: generation,
+          stat: 'id',
+          order: 'asc',
+        })
+        const data = await fetchJson(`/pokemons?${params}`, { signal: controller.signal })
+        setTotalPages(data.totalPages || 1)
+        const details = await Promise.all(data.pokemons.map(async pokemon => {
           try {
-            const detailResponse = await fetch(pokemon.url, { signal: controller.signal })
-            if (!detailResponse.ok) throw new Error(`PokéAPI returned ${detailResponse.status}`)
-            const detail = await detailResponse.json()
+            const detail = await fetchJson(`https://pokeapi.co/api/v2/pokemon/${pokemon.id}`, { signal: controller.signal })
             let description = 'ไม่มีข้อมูลคำอธิบาย'
             let habitat = 'Kanto / Forest'
             try {
-              const speciesResponse = await fetch(detail.species.url, { signal: controller.signal })
-              if (!speciesResponse.ok) throw new Error(`PokéAPI returned ${speciesResponse.status}`)
-              const species = await speciesResponse.json()
+              const species = await fetchJson(detail.species.url, { signal: controller.signal })
               if (species.habitat) habitat = species.habitat.name
               const entry = species.flavor_text_entries.find(item => item.language.name === 'en')
               if (entry) description = entry.flavor_text.replace(/[\f\n\r]/g, ' ')
             } catch (speciesError) {
               if (speciesError.name === 'AbortError') throw speciesError
-              console.error(`โหลดข้อมูลสายพันธุ์ ${detail.name} ไม่สำเร็จ:`, speciesError)
+              console.error(`โหลดข้อมูลสายพันธุ์ ${pokemon.name} ไม่สำเร็จ:`, speciesError)
             }
             return {
-              id: detail.id,
-              name: detail.name,
+              ...pokemon,
               image: detail.sprites.versions?.['generation-v']?.['black-white']?.animated?.front_default || detail.sprites.front_default || '',
               types: detail.types?.map(item => item.type.name) || ['normal'],
               height: detail.height || 10,
@@ -84,15 +86,12 @@ export default function Pokedex({ active }) {
             }
           } catch (detailError) {
             if (detailError.name === 'AbortError') throw detailError
-            console.error(`โหลดรายละเอียด Pokémon ${pokemon.name} ไม่สำเร็จ:`, detailError)
+            console.error(`โหลดข้อมูล Pokémon ${pokemon.name} ไม่สำเร็จ:`, detailError)
             return null
           }
         }))
         if (controller.signal.aborted) return
-        const filtered = details.filter(pokemon => pokemon
-          && (!search.trim() || pokemon.name.toLowerCase().includes(search.trim().toLowerCase()))
-          && (type === 'all' || pokemon.types.includes(type)))
-        setPokemons(filtered)
+        setPokemons(details.filter(Boolean))
       } catch (fetchError) {
         if (fetchError.name !== 'AbortError') {
           console.error(fetchError)

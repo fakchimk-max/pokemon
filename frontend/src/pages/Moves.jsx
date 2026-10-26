@@ -143,7 +143,7 @@ function Recommendations({ active }) {
       <h2>ท่าโจมตีที่แนะนำ</h2>
       <div className="move-recommendation-controls">
         <label htmlFor="movePokemonSearch">เลือก Pokémon</label>
-        <input id="movePokemonSearch" type="search" placeholder="พิมพ์ชื่อ Pokémon เช่น pikachu" autoComplete="off" value={search}
+        <input id="movePokemonSearch" type="search" placeholder="ค้นหาชื่อ Pokémon..." autoComplete="off" value={search}
           onChange={event => { setSearch(event.target.value); setSelectedName(''); setPokemon(null); setMoves([]) }} />
       </div>
       <div id="movePokemonSuggestions" className="move-pokemon-suggestions">
