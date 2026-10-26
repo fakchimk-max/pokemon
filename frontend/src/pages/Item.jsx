@@ -47,7 +47,14 @@ export default function Item({ active }) {
           <input id="itemSearch" className="items-search" type="search" autoComplete="off" placeholder="พิมพ์ชื่อไอเทม..."
             value={search} onChange={event => { setSearch(event.target.value); setPage(1) }} />
           <div id="itemsGrid" className="items-table-wrap">
-            <LoadMessage loading={loading} error={error} empty={!loading && !error && items.length === 0} emptyMessage="ไม่พบข้อมูลไอเทม" />
+            <LoadMessage
+              loading={loading}
+              error={error}
+              empty={!loading && !error && items.length === 0}
+              emptyMessage="ไม่พบข้อมูลไอเทม"
+              success={!loading && !error && items.length > 0}
+              successMessage={`โหลดข้อมูลไอเทมสำเร็จ · แสดง ${items.length} รายการในหน้านี้`}
+            />
             {!loading && !error && items.length > 0 && (
               <table className="items-table">
                 <thead><tr><th scope="col">ชื่อ</th><th scope="col">หมวดหมู่</th><th scope="col">รายละเอียด</th></tr></thead>

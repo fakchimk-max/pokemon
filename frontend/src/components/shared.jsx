@@ -54,9 +54,12 @@ export function PageControls({ id, page, totalPages, onChange }) {
   )
 }
 
-export function LoadMessage({ loading, error, empty, emptyMessage }) {
-  if (loading) return <div className="empty">กำลังโหลดข้อมูล...</div>
-  if (error) return <div className="empty">{error}</div>
-  if (empty) return <div className="empty">{emptyMessage}</div>
+export function LoadMessage({ loading, loadingMessage = 'กำลังโหลดข้อมูล...', error, empty, emptyMessage, success = false, successMessage }) {
+  if (loading) return <div className="empty load-message" role="status" aria-live="polite">{loadingMessage}</div>
+  if (error) return <div className="empty load-message load-message-error" role="alert">{error}</div>
+  if (empty) return <div className="empty load-message" role="status" aria-live="polite">{emptyMessage}</div>
+  if (success && successMessage) {
+    return <div className="empty load-message load-message-success" role="status" aria-live="polite">{successMessage}</div>
+  }
   return null
 }

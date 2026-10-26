@@ -738,6 +738,18 @@
         font-size: 14px;
     }
 
+    .load-message {
+        grid-column: 1 / -1;
+    }
+
+    .load-message-error {
+        color: #ff8a80;
+    }
+
+    .load-message-success {
+        color: #81c784;
+    }
+
     .scroll-top-btn {
         position: fixed;
         right: 26px;

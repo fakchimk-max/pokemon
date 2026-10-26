@@ -329,7 +329,14 @@ export default function Home({ active }) {
             </select>
           </div>
           <div id="pokemonGrid" className="pokemon-grid">
-            <LoadMessage loading={loading} error={error} empty={!loading && !error && pokemons.length === 0} emptyMessage="ไม่พบ Pokémon" />
+            <LoadMessage
+              loading={loading}
+              error={error}
+              empty={!loading && !error && pokemons.length === 0}
+              emptyMessage="ไม่พบ Pokémon"
+              success={!loading && !error && pokemons.length > 0}
+              successMessage={`โหลด Pokémon สำเร็จ · แสดง ${pokemons.length} รายการในหน้านี้`}
+            />
             {!loading && !error && pokemons.map(pokemon => {
               const synergy = (pokemon.types || []).some(currentType =>
                 teamTypes.some(teamType => (typeSynergyMap[teamType] || []).includes(currentType)))

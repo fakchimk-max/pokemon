@@ -131,13 +131,6 @@ function Recommendations({ active }) {
     setSelectedName(option.name)
   }
 
-  const status = optionsError || (loading
-    ? 'กำลังวิเคราะห์ท่าที่เหมาะกับ Pokémon ตัวนี้...'
-    : recommendationError || (pokemon && moves.length
-      ? `ท่าแนะนำสำหรับ ${pokemon.name} — คัดจากท่าที่เรียนรู้ได้ ประเภท และพลังโจมตี`
-      : pokemon ? 'ไม่พบข้อมูลท่าโจมตีที่แนะนำสำหรับ Pokémon ตัวนี้'
-        : suggestions.length ? 'เลือก Pokémon จากรายการที่แสดง' : 'เลือก Pokémon เพื่อดูท่าที่เหมาะกับตัวนั้น'))
-
   return (
     <section className="panel">
       <h2>ท่าโจมตีที่แนะนำ</h2>
@@ -164,7 +157,21 @@ function Recommendations({ active }) {
           <div><strong>#{pokemon.id} {pokemon.name}</strong><br /><TypeBadges types={pokemon.types} /></div>
         </div>
       )}
-      <p id="moveRecommendationStatus" className="move-recommendation-status">{status}</p>
+      {selectedName ? (
+        <LoadMessage
+          loading={loading}
+          loadingMessage="กำลังวิเคราะห์ท่าที่เหมาะกับ Pokémon ตัวนี้..."
+          error={recommendationError}
+          empty={!loading && !recommendationError && Boolean(pokemon) && moves.length === 0}
+          emptyMessage="ไม่พบข้อมูลท่าโจมตีที่แนะนำสำหรับ Pokémon ตัวนี้"
+          success={!loading && !recommendationError && Boolean(pokemon) && moves.length > 0}
+          successMessage={`สำเร็จ: โหลดท่าแนะนำสำหรับ ${pokemon?.name} แล้ว — คัดจากท่าที่เรียนรู้ได้ ประเภท และพลังโจมตี`}
+        />
+      ) : (
+        <p id="moveRecommendationStatus" className="move-recommendation-status">
+          {suggestions.length ? 'เลือก Pokémon จากรายการที่แสดง' : 'เลือก Pokémon เพื่อดูท่าที่เหมาะกับตัวนั้น'}
+        </p>
+      )}
       <div id="moveRecommendations" className="pokemon-grid">
         {moves.map(move => <RecommendationCard key={move.id} move={move} />)}
       </div>
@@ -207,7 +214,14 @@ function MoveList({ active }) {
     <section className="panel">
       <h2>รายการท่าโจมตี (Moves)</h2>
       <div id="movesGrid" className="pokemon-grid">
-        <LoadMessage loading={loading} error={error} empty={!loading && !error && moves.length === 0} emptyMessage="ไม่พบข้อมูลท่าโจมตี" />
+        <LoadMessage
+          loading={loading}
+          error={error}
+          empty={!loading && !error && moves.length === 0}
+          emptyMessage="ไม่พบข้อมูลท่าโจมตี"
+          success={!loading && !error && moves.length > 0}
+          successMessage={`โหลดข้อมูลท่าโจมตีสำเร็จ · แสดง ${moves.length} รายการในหน้านี้`}
+        />
         {!loading && !error && moves.map(move => <MoveCard key={move.id} move={move} />)}
       </div>
       {!loading && !error && <PageControls id="movesPagination" page={page} totalPages={totalPages} onChange={setPage} />}
@@ -250,7 +264,14 @@ function AbilityList({ active }) {
     <section className="panel">
       <h2>รายการความสามารถพิเศษ (Abilities)</h2>
       <div id="abilitiesGrid" className="pokemon-grid">
-        <LoadMessage loading={loading} error={error} empty={!loading && !error && abilities.length === 0} emptyMessage="ไม่พบข้อมูลความสามารถพิเศษ" />
+        <LoadMessage
+          loading={loading}
+          error={error}
+          empty={!loading && !error && abilities.length === 0}
+          emptyMessage="ไม่พบข้อมูลความสามารถพิเศษ"
+          success={!loading && !error && abilities.length > 0}
+          successMessage={`โหลดข้อมูลความสามารถพิเศษสำเร็จ · แสดง ${abilities.length} รายการในหน้านี้`}
+        />
         {!loading && !error && abilities.map(ability => <AbilityCard key={ability.id} ability={ability} />)}
       </div>
       {!loading && !error && <PageControls id="abilitiesPagination" page={page} totalPages={totalPages} onChange={setPage} />}

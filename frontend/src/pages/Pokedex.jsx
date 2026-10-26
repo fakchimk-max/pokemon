@@ -127,7 +127,14 @@ export default function Pokedex({ active }) {
             </select>
           </div>
           <div id="dexGrid" className="pokemon-grid">
-            <LoadMessage loading={loading} error={error} empty={!loading && !error && pokemons.length === 0} emptyMessage="ไม่พบข้อมูล Pokémon" />
+            <LoadMessage
+              loading={loading}
+              error={error}
+              empty={!loading && !error && pokemons.length === 0}
+              emptyMessage="ไม่พบข้อมูล Pokémon"
+              success={!loading && !error && pokemons.length > 0}
+              successMessage={`โหลดข้อมูล Pokédex สำเร็จ · แสดง ${pokemons.length} รายการในหน้านี้`}
+            />
             {!loading && !error && pokemons.map(pokemon => (
               <PokemonCard key={pokemon.id} pokemon={{ ...pokemon, gradient: gradientFor(pokemon.types) }} typesStyle={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', background: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 6, marginBottom: 6, lineHeight: 1.5 }}>
