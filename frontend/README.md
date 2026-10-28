@@ -23,6 +23,12 @@ App
 
 `App` อ่านเส้นทางจาก URL hash และส่ง `active` หรือ `sub` ให้หน้าแต่ละหน้า หน้า Home ส่งข้อมูลทีมและ callback สำหรับเพิ่ม/ลบ/โหลดทีมไปยัง components ลูก ส่วนการ์ด Pokémon รับข้อมูลผ่าน `pokemon` และแจ้งการเลือกผ่าน `onSelect`
 
+### Graph.js เชื่อมเมนูกับหน้า
+
+ไฟล์ `src/graph.js` เก็บ Graph แบบ adjacency list ไว้ใน `pageGraph` โดย **node** คือหน้า และ **edge** คือความเชื่อมโยงที่ใช้เป็นเมนูนำทางไปยังหน้าอื่น ตัวอย่างเช่น `home: ['pokedex', 'moves', 'item']` แปลว่าจากหน้า `home` มีเมนูไปหน้า Pokédex, Moves และ Items ส่วน `moves: ['home', 'moves/attacks', 'moves/abilities']` เชื่อมไปหน้า home และเมนูย่อยทั้งสองหน้า
+
+ใน `App.jsx` ใช้ `pageGraph.home` สร้างเมนูหลัก และใช้ `pageGraph.moves` สร้างเมนูย่อยของ Moves โดยดึงชื่อที่แสดงจาก `pageLabels` ใน `graph.js` เมื่อผู้ใช้กดเมนู URL hash จะเปลี่ยน แล้ว `readLocation()` อ่านเส้นทางเพื่อกำหนดหน้าปัจจุบันและแสดงหน้าให้ตรงกัน วิธีนี้ช่วยให้ความสัมพันธ์และรายการเมนูจัดการจากข้อมูล Graph ชุดเดียว แทนการเขียนเมนูแต่ละรายการซ้ำใน JSX
+
 ### useState
 
 | Component | State ที่เก็บ |
