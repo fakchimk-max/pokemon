@@ -1,5 +1,8 @@
+const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+
 export async function fetchJson(url, options) {
-  const response = await fetch(url, options)
+  const requestUrl = url.startsWith('/') ? `${apiBaseUrl}${url}` : url
+  const response = await fetch(requestUrl, options)
   if (!response.ok) {
     let message = `Request failed (${response.status})`
     try {

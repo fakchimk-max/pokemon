@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pokemon-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: FRONTEND_URL
+        value: https://pokemon-sleeoy.vercel.app

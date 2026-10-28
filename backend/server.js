@@ -3,6 +3,32 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = new Set(
+    (process.env.FRONTEND_URL || "")
+        .split(",")
+        .map(origin => origin.trim())
+        .filter(Boolean)
+);
+
+app.use((req, res, next) => {
+    const origin = req.get("Origin");
+    if (origin && allowedOrigins.has(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
+        if (req.method === "OPTIONS") {
+            res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            res.setHeader(
+                "Access-Control-Allow-Headers",
+                req.get("Access-Control-Request-Headers") || "Content-Type"
+            );
+            return res.sendStatus(204);
+        }
+    } else if (req.method === "OPTIONS") {
+        return res.status(403).json({ error: "Origin is not allowed" });
+    }
+    next();
+});
+
 app.use(express.json());
 
 const GEN_RANGES = {

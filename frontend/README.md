@@ -67,6 +67,17 @@ npm --prefix frontend run dev
 
 คำขอ API ที่ใช้ backend ส่งผ่าน Vite proxy ไปยัง `http://localhost:3000` ส่วนหน้า Pokédex ใช้ Express สำหรับค้นหา/กรองรายชื่อ และเรียก PokéAPI โดยตรงเพื่อโหลดรายละเอียด Pokémon กับคำอธิบายสายพันธุ์
 
+## Deploy บน Vercel และ Render
+
+Frontend ใช้ `VITE_API_URL` เป็น URL ของ backend เมื่อ deploy ส่วนตอนพัฒนาบนเครื่องสามารถเว้นค่านี้ไว้และใช้ Vite proxy ตามเดิมได้
+
+1. สร้าง Web Service บน Render โดยเลือก Blueprint จาก repository นี้ ให้ Render อ่าน `render.yaml` ที่ root แล้วรอให้ service deploy สำเร็จ
+2. คัดลอก URL ของ service เช่น `https://pokemon-api-xxxx.onrender.com`
+3. ใน Vercel เปิด **Settings → Environment Variables** แล้วเพิ่ม `VITE_API_URL` โดยใส่ URL backend ที่คัดลอกมา เลือก Production (และ Preview หากต้องการ)
+4. กด Redeploy deployment ล่าสุดของ frontend เพื่อให้ค่า environment variable ถูกนำไปใช้ตอน build
+
+`FRONTEND_URL` ใน `render.yaml` กำหนด origin ของเว็บ Vercel ที่อนุญาตให้เรียก backend หากใช้โดเมน Vercel อื่น ให้แก้ค่านี้ให้ตรงกับโดเมนจริงก่อน deploy backend อีกครั้ง
+
 ตรวจสอบโค้ดและ production build:
 
 ```powershell
